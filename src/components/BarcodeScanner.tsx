@@ -85,14 +85,19 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
         await scanner.start(
           selectedCamera.id,
-          { 
-            fps: 15, // フレームレートを上げて読み取り精度向上
+          {
+            fps: 24, // フレームレートをさらに上げる
             qrbox: qrboxSize,
-            aspectRatio: 2.5, // 横長のバーコードに最適化
+            aspectRatio: 2.5,
             videoConstraints: {
               facingMode: 'environment',
-              width: { ideal: 1920 }, // 解像度を高く設定
-              height: { ideal: 1080 }
+              width: { ideal: 2560, min: 1920, max: 3840 }, // 可能な限り高解像度
+              height: { ideal: 1440, min: 1080, max: 2160 },
+              focusMode: 'continuous', // 連続オートフォーカス（対応カメラのみ）
+              advanced: [
+                { torch: true }, // フラッシュON（対応カメラのみ）
+                { zoom: 2 } // ズーム（対応カメラのみ）
+              ]
             }
           },
           (decodedText) => {
