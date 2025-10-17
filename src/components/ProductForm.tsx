@@ -40,7 +40,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
     phone: '',
     address: '',
     order_url: '',
-    category: ''
   });
   
   const {
@@ -110,19 +109,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
           id: '650e8400-e29b-41d4-a716-446655440002',
           name: 'パン工房田中',
           contact_person: '田中花子',
-          email: 'hanako@pan-koubou.com',
-          phone: '03-3333-4444',
-          address: '東京都世田谷区三軒茶屋1-1-1',
-          order_url: 'https://pan-koubou-tanaka.com/order',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440003',
-          name: '地元牧場',
-          contact_person: '佐藤一郎',
-          email: 'sato@jimoto-bokujou.com',
-          phone: '03-5555-6666',
           address: '千葉県千葉市美浜区1-1-1',
           order_url: 'https://jimoto-bokujou.com/order',
           created_at: new Date().toISOString(),
@@ -687,26 +673,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                         />
                       </div>
                       
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          カテゴリ
-                        </label>
-                        <select
-                          value={newSupplier.category}
-                          onChange={(e) => setNewSupplier({...newSupplier, category: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">カテゴリを選択</option>
-                          <option value="飲み物">飲み物</option>
-                          <option value="パン類">パン類</option>
-                          <option value="乳製品">乳製品</option>
-                          <option value="主食">主食</option>
-                          <option value="冷凍食品">冷凍食品</option>
-                          <option value="お菓子">お菓子</option>
-                          <option value="調味料">調味料</option>
-                          <option value="その他">その他</option>
-                        </select>
-                      </div>
+
                     </div>
                     
                     <div>
@@ -781,15 +748,14 @@ const ProductForm: React.FC<ProductFormProps> = ({
                         type="button"
                         onClick={() => {
                           setShowSupplierForm(false);
-                          setNewSupplier({
-                            name: '',
-                            contact_person: '',
-                            email: '',
-                            phone: '',
-                            address: '',
-                            order_url: '',
-                            category: ''
-                          });
+                              setNewSupplier({
+                                name: '',
+                                contact_person: '',
+                                email: '',
+                                phone: '',
+                                address: '',
+                                order_url: ''
+                              });
                         }}
                         className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
                       >
@@ -812,7 +778,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                                 phone: newSupplier.phone || '',
                                 address: newSupplier.address || '',
                                 order_url: newSupplier.order_url || undefined,
-                                category: newSupplier.category || undefined,
+                                // カテゴリは削除
                                 created_at: new Date().toISOString(),
                                 updated_at: new Date().toISOString()
                               };
@@ -820,14 +786,14 @@ const ProductForm: React.FC<ProductFormProps> = ({
                               setSuppliers([...suppliers, savedSupplier]);
                               setValue('supplier_id', savedSupplier.id);
                               setShowSupplierForm(false);
+                              // 商品フォーム（バーコード等）はリセットしない
                               setNewSupplier({
                                 name: '',
                                 contact_person: '',
                                 email: '',
                                 phone: '',
                                 address: '',
-                                order_url: '',
-                                category: ''
+                                order_url: ''
                               });
                               
                               // 親コンポーネントに新しい供給元を通知
