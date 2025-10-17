@@ -207,16 +207,17 @@ const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   const handleBarcodeScan = (barcode: string) => {
-  setValue('barcode', barcode);
-  setShowScanner(false);
-  // スキャン時に入荷日を自動セット
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  setValue('arrival_date', `${yyyy}-${mm}-${dd}`);
-  // バーコードから商品情報を検索
-  searchProductInfo(barcode);
+    console.log('スキャンされたバーコード:', barcode);
+    setValue('barcode', barcode);
+    setShowScanner(false);
+    // スキャン時に入荷日を自動セット
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    setValue('arrival_date', `${yyyy}-${mm}-${dd}`);
+    // バーコードから商品情報を検索
+    searchProductInfo(barcode);
   };
 
   const searchProductInfo = async (barcode: string) => {

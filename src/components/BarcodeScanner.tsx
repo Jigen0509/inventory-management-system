@@ -165,6 +165,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       return;
     }
 
+    console.log('BarcodeScanner: 読み取ったバーコード =', barcode);
     setLastScannedCode(barcode);
     setScanHistory(prev => [barcode, ...prev.slice(0, 4)]);
     
