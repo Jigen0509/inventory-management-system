@@ -132,6 +132,10 @@ export interface ProductForm {
   description?: string;
   minimum_stock: number;
   maximum_stock: number;
+  current_stock: number; // 在庫数
+  expiration_date?: string; // 賞味期限
+  consumption_date?: string; // 消費期限
+  arrival_date?: string; // 入荷日（スキャン日）
 }
 
 export interface OrderForm {

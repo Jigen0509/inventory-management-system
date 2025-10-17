@@ -77,18 +77,23 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         scanner = new Html5Qrcode(scannerId);
         scannerRef.current = scanner;
 
-        // スキャンボックスのサイズをレスポンシブに設定
+        // スキャンボックスのサイズを大きく設定（読み取り範囲を拡大）
         const isMobileDevice = window.innerWidth < 768;
         const qrboxSize = isMobileDevice ? 
-          { width: Math.min(300, window.innerWidth * 0.7), height: Math.min(300, window.innerWidth * 0.7) } : 
-          { width: 250, height: 250 };
+          { width: Math.min(400, window.innerWidth * 0.85), height: Math.min(200, window.innerWidth * 0.45) } : 
+          { width: 500, height: 200 };
 
         await scanner.start(
           selectedCamera.id,
           { 
-            fps: 10, 
+            fps: 15, // フレームレートを上げて読み取り精度向上
             qrbox: qrboxSize,
-            aspectRatio: 1.0
+            aspectRatio: 2.5, // 横長のバーコードに最適化
+            videoConstraints: {
+              facingMode: 'environment',
+              width: { ideal: 1920 }, // 解像度を高く設定
+              height: { ideal: 1080 }
+            }
           },
           (decodedText) => {
             if (mounted) {
@@ -199,7 +204,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           </div>
 
           {/* スキャナーエリア */}
-          <div className="flex-1 relative overflow-hidden">
+          <div className="flex-1 relative overflow-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
             <div 
               ref={containerRef}
               className="w-full h-full bg-black relative"
@@ -215,13 +220,18 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               )}
             </div>
             
-            {/* スキャンガイド */}
+            {/* スキャンガイド（横長のバーコード用に最適化） */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-              <div className="w-72 h-72 border-4 border-white rounded-lg opacity-70 shadow-lg relative">
+              <div className="w-80 h-40 border-4 border-white rounded-lg opacity-70 shadow-lg relative">
                 <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-green-400"></div>
                 <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-green-400"></div>
                 <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-green-400"></div>
                 <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-green-400"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-white text-sm font-semibold bg-black bg-opacity-50 px-3 py-1 rounded">
+                    バーコードをここに
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -273,7 +283,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         </div>
       ) : (
         // デスクトップ用モーダル表示
-        <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4">
+        <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
           {/* ヘッダー */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
@@ -288,12 +298,12 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             </button>
           </div>
 
-          {/* スキャナーエリア */}
+          {/* スキャナーエリア（高さを拡大して読み取り範囲を広げる） */}
           <div className="mb-6">
             <div 
               ref={containerRef}
               className="w-full bg-gray-100 rounded-lg relative overflow-hidden"
-              style={{ height: '400px' }}
+              style={{ height: '450px' }}
             >
               {!isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center text-gray-500 z-10 pointer-events-none">
@@ -304,6 +314,10 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                 </div>
               )}
             </div>
+            {/* ヒントテキスト */}
+            <p className="mt-3 text-sm text-gray-600 text-center">
+              📱 バーコードをスキャンエリアの中央に合わせてください。横長のバーコードに最適化されています。
+            </p>
           </div>
 
           {/* 手動入力 */}

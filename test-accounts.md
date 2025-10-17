@@ -84,3 +84,6 @@
 
 `database-setup.sql`ファイルをSupabaseのSQLエディタで実行して、テーブルとテストデータを作成してください。
 
+
+
+

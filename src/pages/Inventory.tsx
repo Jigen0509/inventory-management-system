@@ -18,6 +18,7 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import { db } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import type { ProductWithInventory, Supplier } from '../types/database';
+import { searchProductByBarcode } from '../data/productMaster';
 
 const Inventory: React.FC = () => {
   const { currentStore } = useStore();
@@ -573,9 +574,17 @@ const Inventory: React.FC = () => {
       setShowProductDetail(true);
       toast.success('商品が見つかりました');
     } else {
+      // 商品マスタデータベースから検索
+      const masterProduct = searchProductByBarcode(barcode);
+      
+      if (masterProduct) {
+        toast.success(`商品情報を自動入力: ${masterProduct.name}`);
+      } else {
+        toast('新規商品として追加します。商品情報を入力してください。', { icon: 'ℹ️' });
+      }
+      
       // 新規商品として追加
       setShowAddModal(true);
-      toast('新規商品として追加します');
     }
     
     // スキャナーを閉じる前に少し待機
