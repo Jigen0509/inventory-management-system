@@ -26,6 +26,7 @@ const Inventory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [scannedBarcode, setScannedBarcode] = useState<string | undefined>(undefined);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showProductDetail, setShowProductDetail] = useState(false);
@@ -234,14 +235,33 @@ const Inventory: React.FC = () => {
           setFilteredProducts(dbProducts);
         }
       } else {
+        // localStorageから保存済み商品を読み込む
+        const storeId = currentStore?.id || '1';
+        const productsKey = `store_${storeId}_products`;
+        const inventoriesKey = `store_${storeId}_inventories`;
+        const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
+        const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+        
+        // 商品と在庫情報を結合
+        const productsWithInventory = storedProducts.map((product: any) => {
+          const inventory = storedInventories.find((inv: any) => inv.product_id === product.id);
+          const supplier = suppliers.find((s: Supplier) => s.id === product.supplier_id);
+          return {
+            ...product,
+            inventory,
+            supplier
+          };
+        });
+        
         // デモデータと保存された商品を結合
-        const storeProducts = getStoreProducts(currentStore?.id || '1', 100);
-        const allProducts = [...storeProducts, ...savedProducts];
+        const storeProducts = getStoreProducts(storeId, 100);
+        const savedProductIds = new Set(productsWithInventory.map((p: any) => p.id));
+        const filteredStoreProducts = storeProducts.filter(p => !savedProductIds.has(p.id));
+        
+        const allProducts = [...filteredStoreProducts, ...productsWithInventory];
         setProducts(allProducts);
         setFilteredProducts(allProducts);
-        
-        // ダッシュボード用にローカルストレージに保存
-        localStorage.setItem('storeProducts', JSON.stringify(storeProducts));
+        setSavedProducts(productsWithInventory);
       }
       
     } catch (error) {
@@ -478,7 +498,7 @@ const Inventory: React.FC = () => {
     }
     
     if (current <= 0) return 'critical';
-    if (current <= min) return 'low';
+    if (current < min) return 'low';  // 最小在庫より少ない場合のみ「在庫不足」
     if (current >= max) return 'excess';
     return 'good';
   };
@@ -584,6 +604,7 @@ const Inventory: React.FC = () => {
       }
       
       // 新規商品として追加
+      setScannedBarcode(barcode);
       setShowAddModal(true);
     }
     
@@ -633,7 +654,10 @@ const Inventory: React.FC = () => {
       // データベースモードでは商品一覧を再読み込み
       await loadProducts();
     } else {
-      // デモモードの既存ロジック
+      // デモモードでもlocalStorageから最新データを読み込む
+      await loadProducts();
+      
+      // 既存の保存済み商品リストも更新
       setSavedProducts(prev => {
         const existingIndex = prev.findIndex(p => p.id === productData.id);
         let updatedSavedProducts;
@@ -761,9 +785,13 @@ const Inventory: React.FC = () => {
               <p className="text-sm font-medium text-gray-600">在庫不足・期限切れ</p>
               <p className="text-2xl font-bold text-gray-900">
                 {filteredProducts.filter(p => {
-                  if (isExpired(p)) return true; // 期限切れ商品は在庫不足に含める
-                  const status = getProductStatus(p.inventory?.current_stock || 0, p.inventory?.minimum_stock || 0, p.inventory?.maximum_stock || 0);
-                  return status === 'low' || status === 'critical';
+                  const status = getProductStatus(
+                    p.inventory?.current_stock || 0, 
+                    p.inventory?.minimum_stock || 0, 
+                    p.inventory?.maximum_stock || 0,
+                    p.inventory?.expiration_date
+                  );
+                  return status === 'low' || status === 'critical' || status === 'expired';
                 }).length}
               </p>
             </div>
@@ -776,8 +804,12 @@ const Inventory: React.FC = () => {
               <p className="text-sm font-medium text-gray-600">在庫良好・過多</p>
               <p className="text-2xl font-bold text-gray-900">
                 {filteredProducts.filter(p => {
-                  if (isExpired(p)) return false; // 期限切れ商品は除外
-                  const status = getProductStatus(p.inventory?.current_stock || 0, p.inventory?.minimum_stock || 0, p.inventory?.maximum_stock || 0);
+                  const status = getProductStatus(
+                    p.inventory?.current_stock || 0, 
+                    p.inventory?.minimum_stock || 0, 
+                    p.inventory?.maximum_stock || 0,
+                    p.inventory?.expiration_date
+                  );
                   return status === 'good' || status === 'excess';
                 }).length}
               </p>
@@ -790,7 +822,7 @@ const Inventory: React.FC = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">在庫総額</p>
           <p className="text-2xl font-bold text-gray-900">
-                ¥{filteredProducts.reduce((sum, p) => sum + ((p.inventory?.current_stock || 0) * p.price), 0).toLocaleString()}
+                ¥{filteredProducts.reduce((sum, p) => sum + ((p.inventory?.current_stock || 0) * (p.cost || 0)), 0).toLocaleString()}
           </p>
             </div>
           </div>
@@ -848,11 +880,7 @@ const Inventory: React.FC = () => {
                   </div>
 
                   {/* 価格情報 */}
-                  <div className="grid grid-cols-2 gap-4 mb-3">
-                    <div>
-                      <p className="text-xs text-gray-500">販売価格</p>
-                      <p className="font-medium">¥{product.price.toLocaleString()}</p>
-                    </div>
+                  <div className="mb-3">
                     <div>
                       <p className="text-xs text-gray-500">仕入れ値</p>
                       <p className="font-medium">¥{product.cost.toLocaleString()}</p>
@@ -920,7 +948,6 @@ const Inventory: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">商品名</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">カテゴリー</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">在庫状況</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">販売価格</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">仕入れ値</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">バーコード</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
@@ -965,9 +992,6 @@ const Inventory: React.FC = () => {
                             {expired ? '期限切れ' : `${currentStock}個 / ${maxStock}個`}
                       </span>
                     </div>
-                  </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${!product.supplier?.order_url ? 'text-red-600' : 'text-gray-900'} ${expired ? 'text-red-800' : ''}`}>
-                    ¥{product.price.toLocaleString()}
                   </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${!product.supplier?.order_url ? 'text-red-600' : 'text-gray-900'} ${expired ? 'text-red-800' : ''}`}>
                         ¥{product.cost.toLocaleString()}
@@ -1038,9 +1062,14 @@ const Inventory: React.FC = () => {
         <ProductForm
           isOpen={showAddModal}
           storeId={currentStore?.id || '1'}
-          onClose={() => setShowAddModal(false)}
+          initialBarcode={scannedBarcode}
+          onClose={() => {
+            setShowAddModal(false);
+            setScannedBarcode(undefined);
+          }}
           onSuccess={() => {
             setShowAddModal(false);
+            setScannedBarcode(undefined);
           }}
           suppliers={suppliers}
           onSupplierAdded={(newSupplier: Supplier) => {
@@ -1091,15 +1120,9 @@ const Inventory: React.FC = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">販売価格</p>
-                  <p className="text-lg font-bold text-gray-900">¥{selectedProduct.price.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">仕入れ値</p>
-                  <p className="text-lg font-bold text-gray-900">¥{selectedProduct.cost.toLocaleString()}</p>
-                </div>
+              <div>
+                <p className="text-sm text-gray-600">仕入れ値</p>
+                <p className="text-lg font-bold text-gray-900">¥{selectedProduct.cost.toLocaleString()}</p>
               </div>
 
               <div>

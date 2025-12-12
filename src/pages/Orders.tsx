@@ -139,7 +139,9 @@ const Orders: React.FC = () => {
         ];
         
         // 手動発注データを取得して結合
-        const manualOrders = JSON.parse(localStorage.getItem('manualOrders') || '[]');
+        const storeId = currentStore?.id || '1';
+        const manualOrdersKey = `store_${storeId}_manual_orders`;
+        const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
         const allOrders = [...demoOrders, ...manualOrders];
         
         setOrders(allOrders);
@@ -365,9 +367,11 @@ const Orders: React.FC = () => {
         }
       } else {
         // デモモードではローカルストレージから削除
-        const manualOrders = JSON.parse(localStorage.getItem('manualOrders') || '[]');
+        const storeId = currentStore?.id || '1';
+        const manualOrdersKey = `store_${storeId}_manual_orders`;
+        const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
         const updatedManualOrders = manualOrders.filter((o: any) => o.id !== orderId);
-        localStorage.setItem('manualOrders', JSON.stringify(updatedManualOrders));
+        localStorage.setItem(manualOrdersKey, JSON.stringify(updatedManualOrders));
       }
       
       setOrders(prev => prev.filter(o => o.id !== orderId));
@@ -392,11 +396,13 @@ const Orders: React.FC = () => {
         }
       } else {
         // デモモードではローカルストレージを更新
-        const manualOrders = JSON.parse(localStorage.getItem('manualOrders') || '[]');
+        const storeId = currentStore?.id || '1';
+        const manualOrdersKey = `store_${storeId}_manual_orders`;
+        const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
         const updatedManualOrders = manualOrders.map((o: any) => 
           o.id === orderId ? { ...o, status: newStatus, updated_at: new Date().toISOString() } : o
         );
-        localStorage.setItem('manualOrders', JSON.stringify(updatedManualOrders));
+        localStorage.setItem(manualOrdersKey, JSON.stringify(updatedManualOrders));
       }
       
       // ローカル状態を更新

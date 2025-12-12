@@ -18,17 +18,61 @@ import {
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentStore } = useStore();
-  const { isDatabaseMode } = useAuth();
+  const { user, isDatabaseMode } = useAuth();
   const [unreadChatCount, setUnreadChatCount] = useState(3); // デモ用の未読チャット数
   const [inventoryData, setInventoryData] = useState<any[]>([]);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+
+  // 発注中の商品を取得
+  useEffect(() => {
+    const loadPendingOrders = async () => {
+      try {
+        const storeId = currentStore?.id || user?.store_id;
+        
+        if (!storeId) {
+          setPendingOrdersCount(0);
+          return;
+        }
+        
+        if (isDatabaseMode) {
+          const { data: orders, error } = await db.getOrders(storeId);
+          if (error || !orders) {
+            setPendingOrdersCount(0);
+            return;
+          }
+          const count = orders.filter((o: any) => o.status === 'pending' || o.status === 'draft').length;
+          setPendingOrdersCount(count);
+        } else {
+          // デモモードではローカルストレージから取得
+          const manualOrdersKey = `store_${storeId}_manual_orders`;
+          const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
+          const count = manualOrders.filter((o: any) => o.status === 'pending' || o.status === 'draft').length;
+          setPendingOrdersCount(count);
+        }
+      } catch (error) {
+        console.error('Error getting pending orders:', error);
+        setPendingOrdersCount(0);
+      }
+    };
+
+    loadPendingOrders();
+  }, [currentStore?.id, user?.store_id, isDatabaseMode]);
 
   // 在庫データを取得
   useEffect(() => {
     const loadInventoryData = async () => {
       try {
+        // store_id を user から直接取得（currentStore が未ロードの場合に備える）
+        const storeId = currentStore?.id || user?.store_id;
+        
+        if (!storeId) {
+          console.warn('店舗IDが取得できません');
+          return;
+        }
+        
         if (isDatabaseMode) {
           // データベースから在庫データを取得
-          const { data: dbProducts, error } = await db.getProducts(currentStore?.id || '');
+          const { data: dbProducts, error } = await db.getProducts(storeId);
           
           if (error) {
             console.error('データベースからの在庫データ取得に失敗:', error);
@@ -41,10 +85,19 @@ const Dashboard: React.FC = () => {
           }
         } else {
           // ローカルストレージから在庫データを取得
-          const savedProducts = JSON.parse(localStorage.getItem('savedProducts') || '[]');
-          const storeProducts = JSON.parse(localStorage.getItem('storeProducts') || '[]');
-          const allInventoryData = [...savedProducts, ...storeProducts];
-          setInventoryData(allInventoryData);
+          const storeId = currentStore?.id || user?.store_id || '1';
+          const productsKey = `store_${storeId}_products`;
+          const inventoriesKey = `store_${storeId}_inventories`;
+          const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
+          const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+          
+          // 商品と在庫情報を結合
+          const productsWithInventory = storedProducts.map((product: any) => {
+            const inventory = storedInventories.find((inv: any) => inv.product_id === product.id);
+            return { ...product, inventory };
+          });
+          
+          setInventoryData(productsWithInventory);
         }
       } catch (error) {
         console.error('在庫データの読み込みに失敗しました:', error);
@@ -53,7 +106,7 @@ const Dashboard: React.FC = () => {
     };
 
     loadInventoryData();
-  }, [currentStore?.id, isDatabaseMode]);
+  }, [currentStore?.id, user?.store_id, isDatabaseMode]);
 
   // 店舗ごとのデータ
   const getStoreData = (storeId: string) => {
@@ -66,7 +119,9 @@ const Dashboard: React.FC = () => {
           const current = product.inventory.current_stock || 0;
           const minimum = product.inventory.minimum_stock || 0;
           
-          if (current <= minimum && current > 0) {
+          // 在庫不足: current < minimum かつ current > 0
+          // 在庫切れ: current <= 0
+          if (current < minimum) {
             lowStockItems.push({
               name: product.name,
               current: current,
@@ -82,29 +137,47 @@ const Dashboard: React.FC = () => {
       return lowStockItems; // 制限なし（UIで制限）
     };
 
+    // 期限切れ商品を計算
+    const getExpiredItems = () => {
+      const today = new Date();
+      let expiredCount = 0;
+      
+      inventoryData.forEach(product => {
+        if (product.inventory?.expiration_date) {
+          const expirationDate = new Date(product.inventory.expiration_date);
+          if (expirationDate < today) {
+            expiredCount++;
+          }
+        }
+      });
+      
+      return expiredCount;
+    };
+
     const lowStockItems = getLowStockItems();
     const totalProducts = inventoryData.length || allProducts.length;
+    const expiredItems = getExpiredItems();
 
     const storeData = {
       '550e8400-e29b-41d4-a716-446655440001': { // 本店
         totalProducts: totalProducts,
         todaySales: '¥52,800',
-        pendingOrders: 6,
-        expiredItems: 3,
+        pendingOrders: pendingOrdersCount,
+        expiredItems: expiredItems,
         lowStockItems: lowStockItems
       },
       '550e8400-e29b-41d4-a716-446655440002': { // 支店
         totalProducts: totalProducts,
         todaySales: '¥38,500',
-        pendingOrders: 12,
-        expiredItems: 7,
+        pendingOrders: pendingOrdersCount,
+        expiredItems: expiredItems,
         lowStockItems: lowStockItems
       },
       '550e8400-e29b-41d4-a716-446655440003': { // 名古屋店
         totalProducts: totalProducts,
         todaySales: '¥41,200',
-        pendingOrders: 9,
-        expiredItems: 4,
+        pendingOrders: pendingOrdersCount,
+        expiredItems: expiredItems,
         lowStockItems: lowStockItems
       }
     };

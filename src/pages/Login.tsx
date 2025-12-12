@@ -196,9 +196,9 @@ const Login: React.FC = () => {
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h3 className="text-sm font-medium text-gray-700 mb-2">デモアカウント</h3>
             <div className="text-xs text-gray-600 space-y-1">
-              <p><strong>管理者:</strong> admin@demo.com / password</p>
-              <p><strong>店長:</strong> manager@demo.com / password</p>
-              <p><strong>スタッフ:</strong> staff@demo.com / password</p>
+              <p><strong>管理者:</strong> admin@demo.com / DemoPass2025!</p>
+              <p><strong>店長:</strong> manager@demo.com / DemoPass2025!</p>
+              <p><strong>スタッフ:</strong> staff@demo.com / DemoPass2025!</p>
             </div>
           </div>
         </div>

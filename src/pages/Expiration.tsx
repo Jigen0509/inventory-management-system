@@ -44,9 +44,19 @@ const Expiration: React.FC = () => {
         }
       } else {
         // 在庫管理と同じデータソースを使用
-        const savedProducts = JSON.parse(localStorage.getItem('savedProducts') || '[]');
-        const storeProducts = JSON.parse(localStorage.getItem('storeProducts') || '[]');
-        allInventoryData = [...savedProducts, ...storeProducts];
+        const storeId = currentStore?.id || '1';
+        const productsKey = `store_${storeId}_products`;
+        const inventoriesKey = `store_${storeId}_inventories`;
+        const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
+        const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+        
+        // 商品と在庫情報を結合
+        const productsWithInventory = storedProducts.map((product: any) => {
+          const inventory = storedInventories.find((inv: any) => inv.product_id === product.id);
+          return { ...product, inventory };
+        });
+        
+        allInventoryData = productsWithInventory;
       }
       
       // 消費期限データを生成
@@ -195,34 +205,37 @@ const Expiration: React.FC = () => {
     console.log('処理済み処理開始:', product);
     
     // 在庫から該当商品を除外
-    const savedProducts = JSON.parse(localStorage.getItem('savedProducts') || '[]');
-    const storeProducts = JSON.parse(localStorage.getItem('storeProducts') || '[]');
+    const storeId = currentStore?.id || '1';
+    const productsKey = `store_${storeId}_products`;
+    const inventoriesKey = `store_${storeId}_inventories`;
+    const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
+    const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
     
-    console.log('保存済み商品:', savedProducts);
-    console.log('店舗商品:', storeProducts);
+    console.log('保存済み商品:', storedProducts);
+    console.log('保存済み在庫:', storedInventories);
     
-    // 商品名で一致する商品を検索
-    const updatedSavedProducts = savedProducts.map((p: any) => {
-      if (p.name === product.name) {
-        console.log('保存済み商品で一致:', p.name, '在庫を0に更新');
+    // 商品IDで一致する商品の在庫を更新
+    const updatedProducts = storedProducts.map((p: any) => {
+      if (p.id === product.id) {
+        console.log('商品で一致:', p.name, '在庫を0に更新');
         return { ...p, inventory: { ...p.inventory, current_stock: 0 } };
       }
       return p;
     });
     
-    const updatedStoreProducts = storeProducts.map((p: any) => {
-      if (p.name === product.name) {
-        console.log('店舗商品で一致:', p.name, '在庫を0に更新');
-        return { ...p, inventory: { ...p.inventory, current_stock: 0 } };
+    const updatedInventories = storedInventories.map((inv: any) => {
+      if (inv.product_id === product.id) {
+        console.log('在庫で一致: product_id=' + product.id + ', 在庫を0に更新');
+        return { ...inv, current_stock: 0 };
       }
-      return p;
+      return inv;
     });
     
-    console.log('更新後の保存済み商品:', updatedSavedProducts);
-    console.log('更新後の店舗商品:', updatedStoreProducts);
+    console.log('更新後の商品:', updatedProducts);
+    console.log('更新後の在庫:', updatedInventories);
     
-    localStorage.setItem('savedProducts', JSON.stringify(updatedSavedProducts));
-    localStorage.setItem('storeProducts', JSON.stringify(updatedStoreProducts));
+    localStorage.setItem(productsKey, JSON.stringify(updatedProducts));
+    localStorage.setItem(inventoriesKey, JSON.stringify(updatedInventories));
     
     // 商品一覧から除外
     setProducts(prev => prev.filter(p => p.id !== product.id));
@@ -236,34 +249,37 @@ const Expiration: React.FC = () => {
       console.log('廃棄処理開始:', product);
       
       // 在庫から該当商品を除外
-      const savedProducts = JSON.parse(localStorage.getItem('savedProducts') || '[]');
-      const storeProducts = JSON.parse(localStorage.getItem('storeProducts') || '[]');
+      const storeId = currentStore?.id || '1';
+      const productsKey = `store_${storeId}_products`;
+      const inventoriesKey = `store_${storeId}_inventories`;
+      const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
+      const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
       
-      console.log('保存済み商品:', savedProducts);
-      console.log('店舗商品:', storeProducts);
+      console.log('保存済み商品:', storedProducts);
+      console.log('保存済み在庫:', storedInventories);
       
-      // 商品名で一致する商品を検索
-      const updatedSavedProducts = savedProducts.map((p: any) => {
-        if (p.name === product.name) {
-          console.log('保存済み商品で一致:', p.name, '在庫を0に更新');
+      // 商品IDで一致する商品の在庫を更新
+      const updatedProducts = storedProducts.map((p: any) => {
+        if (p.id === product.id) {
+          console.log('商品で一致:', p.name, '在庫を0に更新');
           return { ...p, inventory: { ...p.inventory, current_stock: 0 } };
         }
         return p;
       });
       
-      const updatedStoreProducts = storeProducts.map((p: any) => {
-        if (p.name === product.name) {
-          console.log('店舗商品で一致:', p.name, '在庫を0に更新');
-          return { ...p, inventory: { ...p.inventory, current_stock: 0 } };
+      const updatedInventories = storedInventories.map((inv: any) => {
+        if (inv.product_id === product.id) {
+          console.log('在庫で一致: product_id=' + product.id + ', 在庫を0に更新');
+          return { ...inv, current_stock: 0 };
         }
-        return p;
+        return inv;
       });
       
-      console.log('更新後の保存済み商品:', updatedSavedProducts);
-      console.log('更新後の店舗商品:', updatedStoreProducts);
+      console.log('更新後の商品:', updatedProducts);
+      console.log('更新後の在庫:', updatedInventories);
       
-      localStorage.setItem('savedProducts', JSON.stringify(updatedSavedProducts));
-      localStorage.setItem('storeProducts', JSON.stringify(updatedStoreProducts));
+      localStorage.setItem(productsKey, JSON.stringify(updatedProducts));
+      localStorage.setItem(inventoriesKey, JSON.stringify(updatedInventories));
       
       // 商品一覧から除外
       setProducts(prev => prev.filter(p => p.id !== product.id));
