@@ -8,7 +8,15 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   server: {
-    host: true, // ネットワーク上の他のデバイスからアクセス可能に
+    host: true,
     port: 5173,
+    strictPort: true,
+    proxy: {
+      '/yahoo-proxy': {
+        target: 'https://shopping.yahooapis.jp',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/yahoo-proxy/, ''),
+      },
+    },
   },
 });
