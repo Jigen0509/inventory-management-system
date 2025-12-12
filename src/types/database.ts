@@ -24,7 +24,6 @@ export interface Product {
   name: string;
   barcode?: string;
   category: string;
-  price: number;
   cost: number;
   supplier_id: string;
   description?: string;
@@ -100,6 +99,57 @@ export interface Session {
   created_at: string;
 }
 
+// Supabase Database型定義
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: User;
+        Insert: Omit<User, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<User, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      stores: {
+        Row: Store;
+        Insert: Omit<Store, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Store, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      products: {
+        Row: Product;
+        Insert: Omit<Product, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Product, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      inventories: {
+        Row: Inventory;
+        Insert: Omit<Inventory, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Inventory, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      suppliers: {
+        Row: Supplier;
+        Insert: Omit<Supplier, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Supplier, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      orders: {
+        Row: Order;
+        Insert: Omit<Order, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Order, 'id' | 'created_at' | 'updated_at'>>;
+      };
+      order_items: {
+        Row: OrderItem;
+        Insert: Omit<OrderItem, 'id' | 'created_at'>;
+        Update: Partial<Omit<OrderItem, 'id' | 'created_at'>>;
+      };
+      chat_messages: {
+        Row: ChatMessage;
+        Insert: Omit<ChatMessage, 'id' | 'created_at'>;
+        Update: Partial<Omit<ChatMessage, 'id' | 'created_at'>>;
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+  };
+}
+
 // 拡張型定義
 export interface ProductWithInventory extends Product {
   inventory: Inventory;
@@ -126,7 +176,6 @@ export interface ProductForm {
   name: string;
   barcode?: string;
   category: string;
-  price: number;
   cost: number;
   supplier_id: string;
   description?: string;
@@ -134,8 +183,6 @@ export interface ProductForm {
   maximum_stock: number;
   current_stock: number; // 在庫数
   expiration_date?: string; // 賞味期限
-  consumption_date?: string; // 消費期限
-  arrival_date?: string; // 入荷日（スキャン日）
 }
 
 export interface OrderForm {
