@@ -8,7 +8,6 @@ import {
   MoreVertical,
   Plus,
   Users,
-  MessageCircle,
   Image,
   CheckCheck
 } from 'lucide-react';
@@ -17,13 +16,30 @@ import { useStore } from '../contexts/StoreContext';
 import { db } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
+interface ChatMessage {
+  id: string;
+  sender_id: string;
+  message: string;
+  created_at: string;
+  is_system: boolean;
+  sender?: {
+    name: string;
+  };
+}
+
+interface OnlineMember {
+  id: string;
+  name: string;
+  is_online?: boolean;
+}
+
 const Chat: React.FC = () => {
   const { user } = useAuth();
   const { currentStore } = useStore();
   const [message, setMessage] = useState('');
   const [activeChat, setActiveChat] = useState('general');
-  const [messages, setMessages] = useState<any[]>([]);
-  const [onlineMembers, setOnlineMembers] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [onlineMembers, setOnlineMembers] = useState<OnlineMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +98,7 @@ const Chat: React.FC = () => {
           // 自分以外のメッセージを既読にする
           try {
             await db.markMessageAsRead(msg.id, user.id);
-          } catch (err) {
+          } catch {
             // 既に既読済みの場合はエラーになるため無視
           }
         }
@@ -169,7 +185,7 @@ const Chat: React.FC = () => {
       if (newMessage?.id) {
         try {
           await db.markMessageAsRead(newMessage.id, user.id);
-        } catch (err) {
+        } catch {
           // 既読登録のエラーは無視
         }
       }

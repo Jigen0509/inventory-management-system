@@ -11,16 +11,59 @@ import {
 } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useAuth } from '../contexts/AuthContext';
-import { allProducts } from '../data/products';
 import { db } from '../lib/supabase';
 import toast from 'react-hot-toast';
+
+interface ExpirationProduct {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  expirationDate: string;
+  daysUntilExpiration: number;
+  riskLevel: string;
+  supplier: string;
+  batchNumber: string;
+  location: string;
+  inventory?: {
+    current_stock: number;
+    expiration_date?: string;
+  };
+}
+
+interface ProductWithInventory {
+  id: string;
+  name: string;
+  category: string;
+  supplier?: { name: string };
+  inventory?: {
+    current_stock: number;
+    expiration_date?: string;
+  };
+}
+
+interface LocalProductItem {
+  id: string;
+  name: string;
+  category: string;
+  inventory?: {
+    current_stock: number;
+    expiration_date?: string;
+  };
+}
+
+interface LocalInventoryItem {
+  product_id: string;
+  current_stock: number;
+  expiration_date?: string;
+}
 
 const Expiration: React.FC = () => {
   const { currentStore } = useStore();
   const { isDatabaseMode } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [riskLevel, setRiskLevel] = useState('all');
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<ExpirationProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // 商品データを読み込み
@@ -28,7 +71,7 @@ const Expiration: React.FC = () => {
     try {
       setIsLoading(true);
       
-      let allInventoryData: any[] = [];
+      let allInventoryData: ProductWithInventory[] = [];
       
       if (isDatabaseMode) {
         // データベースから商品データを取得
@@ -47,12 +90,12 @@ const Expiration: React.FC = () => {
         const storeId = currentStore?.id || '1';
         const productsKey = `store_${storeId}_products`;
         const inventoriesKey = `store_${storeId}_inventories`;
-        const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
-        const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+        const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]') as { id: string; name: string; category: string }[];
+        const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]') as { product_id: string; current_stock: number; expiration_date?: string }[];
         
         // 商品と在庫情報を結合
-        const productsWithInventory = storedProducts.map((product: any) => {
-          const inventory = storedInventories.find((inv: any) => inv.product_id === product.id);
+        const productsWithInventory: ProductWithInventory[] = storedProducts.map((product) => {
+          const inventory = storedInventories.find((inv) => inv.product_id === product.id);
           return { ...product, inventory };
         });
         
@@ -201,21 +244,21 @@ const Expiration: React.FC = () => {
   };
 
   // 処理済みにする
-  const handleProcessed = (product: any) => {
+  const handleProcessed = (product: ExpirationProduct) => {
     console.log('処理済み処理開始:', product);
     
     // 在庫から該当商品を除外
     const storeId = currentStore?.id || '1';
     const productsKey = `store_${storeId}_products`;
     const inventoriesKey = `store_${storeId}_inventories`;
-    const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
-    const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+    const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]') as LocalProductItem[];
+    const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]') as LocalInventoryItem[];
     
     console.log('保存済み商品:', storedProducts);
     console.log('保存済み在庫:', storedInventories);
     
     // 商品IDで一致する商品の在庫を更新
-    const updatedProducts = storedProducts.map((p: any) => {
+    const updatedProducts = storedProducts.map((p) => {
       if (p.id === product.id) {
         console.log('商品で一致:', p.name, '在庫を0に更新');
         return { ...p, inventory: { ...p.inventory, current_stock: 0 } };
@@ -223,7 +266,7 @@ const Expiration: React.FC = () => {
       return p;
     });
     
-    const updatedInventories = storedInventories.map((inv: any) => {
+    const updatedInventories = storedInventories.map((inv) => {
       if (inv.product_id === product.id) {
         console.log('在庫で一致: product_id=' + product.id + ', 在庫を0に更新');
         return { ...inv, current_stock: 0 };
@@ -244,7 +287,7 @@ const Expiration: React.FC = () => {
   };
 
   // 廃棄処理
-  const handleDispose = (product: any) => {
+  const handleDispose = (product: ExpirationProduct) => {
     if (window.confirm(`${product.name}を廃棄処理しますか？\n\nこの操作は取り消せません。`)) {
       console.log('廃棄処理開始:', product);
       
@@ -252,14 +295,14 @@ const Expiration: React.FC = () => {
       const storeId = currentStore?.id || '1';
       const productsKey = `store_${storeId}_products`;
       const inventoriesKey = `store_${storeId}_inventories`;
-      const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
-      const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+      const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]') as LocalProductItem[];
+      const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]') as LocalInventoryItem[];
       
       console.log('保存済み商品:', storedProducts);
       console.log('保存済み在庫:', storedInventories);
       
       // 商品IDで一致する商品の在庫を更新
-      const updatedProducts = storedProducts.map((p: any) => {
+      const updatedProducts = storedProducts.map((p) => {
         if (p.id === product.id) {
           console.log('商品で一致:', p.name, '在庫を0に更新');
           return { ...p, inventory: { ...p.inventory, current_stock: 0 } };
@@ -267,7 +310,7 @@ const Expiration: React.FC = () => {
         return p;
       });
       
-      const updatedInventories = storedInventories.map((inv: any) => {
+      const updatedInventories = storedInventories.map((inv) => {
         if (inv.product_id === product.id) {
           console.log('在庫で一致: product_id=' + product.id + ', 在庫を0に更新');
           return { ...inv, current_stock: 0 };

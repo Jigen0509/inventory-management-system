@@ -48,7 +48,7 @@ const Login: React.FC = () => {
       } else {
         toast.error(result.error || 'ログインに失敗しました');
       }
-    } catch (error) {
+    } catch {
       toast.error('ログインに失敗しました');
     } finally {
       setIsLoading(false);

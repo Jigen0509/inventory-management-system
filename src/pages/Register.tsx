@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, Store, User, Lock, Mail, Building, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -19,7 +18,6 @@ const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -61,7 +59,7 @@ const Register: React.FC = () => {
       // ここではデモ用の処理
       toast.success('アカウントが作成されました！ログインしてください。');
       navigate('/login');
-    } catch (error) {
+    } catch {
       toast.error('アカウント作成に失敗しました');
     } finally {
       setIsLoading(false);

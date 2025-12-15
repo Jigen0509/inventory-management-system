@@ -5,7 +5,6 @@ import {
   CheckCircle, 
   Plus, 
   Minus, 
-  FileText,
   Download,
   Send,
   X
@@ -14,7 +13,7 @@ import { jsPDF } from 'jspdf';
 import toast from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/supabase';
-import type { ProductWithInventory, Supplier, OrderForm } from '../types/database';
+import type { ProductWithInventory, Supplier } from '../types/database';
 
 interface AutoOrderGeneratorProps {
   isOpen: boolean;
@@ -33,6 +32,23 @@ interface OrderItem {
   total_price: number;
 }
 
+interface FormattedLowStockItem {
+  product_id: string;
+  product: {
+    id: string;
+    name: string;
+    barcode: string;
+    category: string;
+    price: number;
+    cost: number;
+    supplier_id: string;
+    description: string;
+  };
+  current_stock: number;
+  minimum_stock: number;
+  maximum_stock: number;
+}
+
 const AutoOrderGenerator: React.FC<AutoOrderGeneratorProps> = ({
   isOpen,
   onClose,
@@ -46,7 +62,6 @@ const AutoOrderGenerator: React.FC<AutoOrderGeneratorProps> = ({
   const [expectedDelivery, setExpectedDelivery] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [groupedBySupplier, setGroupedBySupplier] = useState<{[key: string]: OrderItem[]}>({});
 
   useEffect(() => {
@@ -87,11 +102,10 @@ const AutoOrderGenerator: React.FC<AutoOrderGeneratorProps> = ({
             maximum_stock: item.maximum_stock
           }));
           
-          const orderItems: OrderItem[] = formattedItems.map((item: any) => {
+          const orderItems: OrderItem[] = formattedItems.map((item: FormattedLowStockItem) => {
             const product = item.product;
             const currentStock = item.current_stock;
             const minimumStock = item.minimum_stock;
-            const maximumStock = item.maximum_stock;
             
             // 発注数量の計算（最小在庫の2倍を目安）
             const suggestedQuantity = Math.max(minimumStock * 2 - currentStock, minimumStock);
@@ -275,11 +289,10 @@ const AutoOrderGenerator: React.FC<AutoOrderGeneratorProps> = ({
         }
       ];
 
-      const orderItems: OrderItem[] = demoLowStockItems.map((item: any) => {
+      const orderItems: OrderItem[] = demoLowStockItems.map((item: FormattedLowStockItem) => {
         const product = item.product;
         const currentStock = item.current_stock;
         const minimumStock = item.minimum_stock;
-        const maximumStock = item.maximum_stock;
         
         // 発注数量の計算（最小在庫の2倍を目安）
         const suggestedQuantity = Math.max(minimumStock * 2 - currentStock, minimumStock);
@@ -669,11 +682,11 @@ const AutoOrderGenerator: React.FC<AutoOrderGeneratorProps> = ({
       toast.success('発注書を作成しました');
       onOrderCreated();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating order:', error);
       // エラーメッセージは1回だけ表示
       if (!localStorage.getItem('orderCreateErrorShown')) {
-        toast.error(error.message || '発注書の作成に失敗しました');
+        toast.error(error instanceof Error ? error.message : '発注書の作成に失敗しました');
         localStorage.setItem('orderCreateErrorShown', 'true');
         setTimeout(() => {
           localStorage.removeItem('orderCreateErrorShown');

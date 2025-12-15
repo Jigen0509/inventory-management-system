@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { allProducts } from '../data/products';
 import { 
   Package, 
   Plus, 
@@ -20,6 +19,8 @@ import toast from 'react-hot-toast';
 import type { ProductWithInventory, Supplier } from '../types/database';
 import { searchProductByBarcode } from '../data/productMaster';
 
+// デモ用のローカル型は本番運用では不要のため削除
+
 const Inventory: React.FC = () => {
   const { currentStore } = useStore();
   const { isDatabaseMode } = useAuth();
@@ -36,7 +37,6 @@ const Inventory: React.FC = () => {
   const [filteredProducts, setFilteredProducts] = useState<ProductWithInventory[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [savedProducts, setSavedProducts] = useState<ProductWithInventory[]>([]);
   const [isScannerMounted, setIsScannerMounted] = useState(false);
 
   const categories = ['all', '在庫不足', '飲み物', 'パン類', '乳製品', '主食', '冷凍食品', 'お菓子', '調味料', 'インスタント', '野菜', '肉類', '魚類', 'その他'];
@@ -73,146 +73,15 @@ const Inventory: React.FC = () => {
   // 供給元データを読み込み
   const loadSuppliers = async () => {
     try {
-      if (isDatabaseMode) {
-        // データベースから供給元データを取得
-        const { data: dbSuppliers, error } = await db.getSuppliers();
-        
-        if (error) {
-          console.error('データベースからの供給元取得に失敗:', error);
-          throw error;
-        }
-        
-        if (dbSuppliers) {
-          setSuppliers(dbSuppliers);
-        }
-      } else {
-        // デモ用の供給元データ
-        const demoSuppliers = [
-        {
-          id: '650e8400-e29b-41d4-a716-446655440001',
-          name: 'ABC商事',
-          contact_person: '田中太郎',
-          email: 'tanaka@abc-shouji.com',
-          phone: '03-1111-2222',
-          address: '東京都新宿区西新宿1-1-1',
-          order_url: 'https://abc-shouji.com/order',
-          category: 'その他',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440002',
-          name: 'パン工房田中',
-          contact_person: '田中花子',
-          email: 'hanako@pan-koubou.com',
-          phone: '03-3333-4444',
-          address: '東京都世田谷区三軒茶屋1-1-1',
-          order_url: 'https://pan-koubou-tanaka.com/order',
-      category: 'パン類',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440003',
-          name: '地元牧場',
-          contact_person: '佐藤一郎',
-          email: 'sato@jimoto-bokujou.com',
-          phone: '03-5555-6666',
-          address: '千葉県千葉市美浜区1-1-1',
-          order_url: 'https://jimoto-bokujou.com/order',
-      category: '乳製品',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440004',
-          name: '飲料卸売業者',
-          contact_person: '山田次郎',
-          email: 'yamada@drink-wholesale.com',
-          phone: '03-7777-8888',
-          address: '神奈川県横浜市港北区1-1-1',
-          order_url: 'https://drink-wholesale.com/order',
-          category: '飲み物',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440005',
-          name: '冷凍食品専門店',
-          contact_person: '鈴木三郎',
-          email: 'suzuki@frozen-foods.com',
-          phone: '03-9999-0000',
-          address: '埼玉県さいたま市大宮区1-1-1',
-          order_url: 'https://frozen-foods.com/order',
-      category: '冷凍食品',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440006',
-          name: '調味料卸売業者',
-          contact_person: '高橋四郎',
-          email: 'takahashi@seasoning-wholesale.com',
-          phone: '03-1111-3333',
-          address: '千葉県船橋市1-1-1',
-          order_url: 'https://seasoning-wholesale.com/order',
-          category: '調味料',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440007',
-          name: 'お菓子卸売業者',
-          contact_person: '伊藤五郎',
-          email: 'ito@snack-wholesale.com',
-          phone: '03-2222-4444',
-          address: '東京都足立区1-1-1',
-          order_url: 'https://snack-wholesale.com/order',
-          category: 'お菓子',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440008',
-          name: '野菜直売所',
-          contact_person: '渡辺六郎',
-          email: 'watanabe@vegetable-direct.com',
-          phone: '03-3333-5555',
-          address: '茨城県水戸市1-1-1',
-          order_url: 'https://vegetable-direct.com/order',
-          category: '野菜',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440009',
-          name: '肉類専門卸売業者',
-          contact_person: '中村七郎',
-          email: 'nakamura@meat-wholesale.com',
-          phone: '03-4444-6666',
-          address: '群馬県前橋市1-1-1',
-          order_url: 'https://meat-wholesale.com/order',
-          category: '肉類',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: '650e8400-e29b-41d4-a716-446655440010',
-          name: '魚類専門卸売業者',
-          contact_person: '小林八郎',
-          email: 'kobayashi@fish-wholesale.com',
-          phone: '03-5555-7777',
-          address: '千葉県銚子市1-1-1',
-          order_url: 'https://fish-wholesale.com/order',
-          category: '魚類',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-        ];
-        setSuppliers(demoSuppliers);
+      const { data: dbSuppliers, error } = await db.getSuppliers();
+      if (error) {
+        console.error('データベースからの供給元取得に失敗:', error);
+        throw error;
       }
+      setSuppliers(dbSuppliers ?? []);
     } catch (error) {
       console.error('Error loading suppliers:', error);
+      setSuppliers([]);
     }
   };
 
@@ -220,54 +89,25 @@ const Inventory: React.FC = () => {
   const loadProducts = async () => {
     try {
       setIsLoading(true);
-      
-      if (isDatabaseMode) {
-        // データベースから商品データを取得
-        const { data: dbProducts, error } = await db.getProducts(currentStore?.id || '');
-        
-        if (error) {
-          console.error('データベースからの商品取得に失敗:', error);
-          throw error;
-        }
-        
-        if (dbProducts) {
-          setProducts(dbProducts);
-          setFilteredProducts(dbProducts);
-        }
-      } else {
-        // localStorageから保存済み商品を読み込む
-        const storeId = currentStore?.id || '1';
-        const productsKey = `store_${storeId}_products`;
-        const inventoriesKey = `store_${storeId}_inventories`;
-        const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
-        const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
-        
-        // 商品と在庫情報を結合
-        const productsWithInventory = storedProducts.map((product: any) => {
-          const inventory = storedInventories.find((inv: any) => inv.product_id === product.id);
-          const supplier = suppliers.find((s: Supplier) => s.id === product.supplier_id);
-          return {
-            ...product,
-            inventory,
-            supplier
-          };
-        });
-        
-        // デモデータと保存された商品を結合
-        const storeProducts = getStoreProducts(storeId, 100);
-        const savedProductIds = new Set(productsWithInventory.map((p: any) => p.id));
-        const filteredStoreProducts = storeProducts.filter(p => !savedProductIds.has(p.id));
-        
-        const allProducts = [...filteredStoreProducts, ...productsWithInventory];
-        setProducts(allProducts);
-        setFilteredProducts(allProducts);
-        setSavedProducts(productsWithInventory);
+
+      if (!currentStore?.id) {
+        setProducts([]);
+        setFilteredProducts([]);
+        return;
       }
-      
+
+      // データベースから商品データを取得（本番専用）
+      const { data: dbProducts, error } = await db.getProducts(currentStore.id);
+      if (error) {
+        console.error('データベースからの商品取得に失敗:', error);
+        throw error;
+      }
+
+      const list = dbProducts ?? [];
+      setProducts(list);
+      setFilteredProducts(list);
     } catch (error) {
       console.error('商品の読み込みに失敗しました:', error);
-      
-      // エラーメッセージの重複表示を防ぐ
       const errorShown = localStorage.getItem('inventoryErrorShown');
       if (!errorShown) {
         toast.error('商品の読み込みに失敗しました');
@@ -281,208 +121,7 @@ const Inventory: React.FC = () => {
     }
   };
 
-  // 店舗ごとの商品データを生成（固定データ）
-  const getStoreProducts = (storeId: string, targetCount: number): ProductWithInventory[] => {
-    const storeProducts: ProductWithInventory[] = [];
-    const usedIds = new Set<string>();
-    const usedBarcodes = new Set<string>();
-
-    // 固定の順序で商品を選択（ランダムではなく）
-    for (let i = 0; i < Math.min(targetCount, allProducts.length); i++) {
-      const randomProduct = allProducts[i];
-      
-      // 重複チェック
-      if (usedIds.has(String(randomProduct.id)) || usedBarcodes.has(randomProduct.barcode)) {
-        continue;
-      }
-
-      // 供給元IDを先に決定（発注URLが設定されている供給元のみ）
-      const supplierIds = [
-        '650e8400-e29b-41d4-a716-446655440001',
-        '650e8400-e29b-41d4-a716-446655440002',
-        '650e8400-e29b-41d4-a716-446655440003',
-        '650e8400-e29b-41d4-a716-446655440004',
-        '650e8400-e29b-41d4-a716-446655440005',
-        '650e8400-e29b-41d4-a716-446655440006',
-        '650e8400-e29b-41d4-a716-446655440007',
-        '650e8400-e29b-41d4-a716-446655440008',
-        '650e8400-e29b-41d4-a716-446655440009',
-        '650e8400-e29b-41d4-a716-446655440010'
-      ];
-      // 固定の供給元IDを選択（商品インデックスに基づいて）
-      const supplierIndex = i % supplierIds.length;
-      const selectedSupplierId = supplierIds[supplierIndex];
-
-      // 固定のIDを生成
-      const uniqueId = `${randomProduct.id}_${storeId}_${i}`;
-      
-      const product: ProductWithInventory = {
-        ...randomProduct,
-        id: uniqueId,
-        supplier_id: selectedSupplierId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        inventory: {
-          id: uniqueId,
-          product_id: uniqueId,
-          store_id: storeId,
-          current_stock: i < 10 ? Math.floor(Math.random() * 5) + 1 : 50 + (i % 50), // 最初の10個は在庫不足（1-5個）、それ以外は50-99の固定値
-          minimum_stock: i < 10 ? Math.floor(Math.random() * 10) + 8 : 10 + (i % 10), // 最初の10個は最小在庫8-17個、それ以外は10-19の固定値
-          maximum_stock: 100 + (i % 100), // 100-199の固定値
-          last_updated: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        supplier: (() => {
-          const suppliers = [
-            {
-              id: '650e8400-e29b-41d4-a716-446655440001',
-              name: 'ABC商事',
-              contact_person: '田中太郎',
-              email: 'tanaka@abc-shouji.com',
-              phone: '03-1111-2222',
-              address: '東京都新宿区西新宿1-1-1',
-              order_url: 'https://abc-shouji.com/order',
-              category: 'その他',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440002',
-              name: 'パン工房田中',
-              contact_person: '田中花子',
-              email: 'hanako@pan-koubou.com',
-              phone: '03-3333-4444',
-              address: '東京都世田谷区三軒茶屋1-1-1',
-              order_url: 'https://pan-koubou-tanaka.com/order',
-              category: 'パン類',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440003',
-              name: '地元牧場',
-              contact_person: '佐藤一郎',
-              email: 'sato@jimoto-bokujou.com',
-              phone: '03-5555-6666',
-              address: '千葉県千葉市美浜区1-1-1',
-              order_url: 'https://jimoto-bokujou.com/order',
-              category: '乳製品',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440004',
-              name: '飲料卸売業者',
-              contact_person: '山田次郎',
-              email: 'yamada@drink-wholesale.com',
-              phone: '03-7777-8888',
-              address: '神奈川県横浜市港北区1-1-1',
-              order_url: 'https://drink-wholesale.com/order',
-              category: '飲み物',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440005',
-              name: '冷凍食品専門店',
-              contact_person: '鈴木三郎',
-              email: 'suzuki@frozen-foods.com',
-              phone: '03-9999-0000',
-              address: '埼玉県さいたま市大宮区1-1-1',
-              order_url: 'https://frozen-foods.com/order',
-              category: '冷凍食品',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440006',
-              name: '調味料卸売業者',
-              contact_person: '高橋四郎',
-              email: 'takahashi@seasoning-wholesale.com',
-              phone: '03-1111-3333',
-              address: '千葉県船橋市1-1-1',
-              order_url: 'https://seasoning-wholesale.com/order',
-              category: '調味料',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440007',
-              name: 'お菓子卸売業者',
-              contact_person: '伊藤五郎',
-              email: 'ito@snack-wholesale.com',
-              phone: '03-2222-4444',
-              address: '東京都足立区1-1-1',
-              order_url: 'https://snack-wholesale.com/order',
-              category: 'お菓子',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440008',
-              name: '野菜直売所',
-              contact_person: '渡辺六郎',
-              email: 'watanabe@vegetable-direct.com',
-              phone: '03-3333-5555',
-              address: '茨城県水戸市1-1-1',
-              order_url: 'https://vegetable-direct.com/order',
-              category: '野菜',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440009',
-              name: '肉類専門卸売業者',
-              contact_person: '中村七郎',
-              email: 'nakamura@meat-wholesale.com',
-              phone: '03-4444-6666',
-              address: '群馬県前橋市1-1-1',
-              order_url: 'https://meat-wholesale.com/order',
-              category: '肉類',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440010',
-              name: '魚類専門卸売業者',
-              contact_person: '小林八郎',
-              email: 'kobayashi@fish-wholesale.com',
-              phone: '03-5555-7777',
-              address: '千葉県銚子市1-1-1',
-              order_url: 'https://fish-wholesale.com/order',
-              category: '魚類',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            {
-              id: '650e8400-e29b-41d4-a716-446655440011',
-              name: '未設定供給元',
-              contact_person: '未設定',
-              email: 'unset@example.com',
-              phone: '000-0000-0000',
-              address: '未設定',
-              order_url: undefined,
-              category: 'その他',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ];
-          
-          // supplier_idに基づいて供給元を選択
-          const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
-          return selectedSupplier || suppliers[0]; // デフォルトは最初の供給元
-        })()
-      };
-
-      storeProducts.push(product);
-      usedIds.add(String(randomProduct.id));
-      usedBarcodes.add(randomProduct.barcode);
-    }
-
-    console.log(`Generated ${storeProducts.length} products for store ${storeId}`);
-    return storeProducts;
-  };
+  // デモ生成は削除済み（本番はDBデータのみ使用）
 
   // 商品の在庫状況を判定
   const getProductStatus = (current: number, min: number, max: number, expirationDate?: string) => {
@@ -643,55 +282,19 @@ const Inventory: React.FC = () => {
       setProducts(prev => prev.filter(p => p.id !== productId));
       setFilteredProducts(prev => prev.filter(p => p.id !== productId));
       toast.success('商品を削除しました');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting product:', error);
-      toast.error(error.message || '商品の削除に失敗しました');
+      toast.error(error instanceof Error ? error.message : '商品の削除に失敗しました');
     }
   };
 
-  const handleProductSaved = async (productData: any) => {
+  const handleProductSaved = async () => {
     if (isDatabaseMode) {
       // データベースモードでは商品一覧を再読み込み
       await loadProducts();
     } else {
       // デモモードでもlocalStorageから最新データを読み込む
       await loadProducts();
-      
-      // 既存の保存済み商品リストも更新
-      setSavedProducts(prev => {
-        const existingIndex = prev.findIndex(p => p.id === productData.id);
-        let updatedSavedProducts;
-        
-        if (existingIndex >= 0) {
-          // 既存商品を更新
-          updatedSavedProducts = [...prev];
-          updatedSavedProducts[existingIndex] = productData;
-        } else {
-          // 新規商品を追加
-          updatedSavedProducts = [...prev, productData];
-        }
-        
-        // 商品一覧を更新（保存済み商品のIDリストを作成）
-        const storeProducts = getStoreProducts(currentStore?.id || '1', 100);
-        const savedProductIds = new Set(updatedSavedProducts.map(p => p.id));
-        
-        // デモ商品から保存済み商品と同じIDのものを除外
-        const filteredStoreProducts = storeProducts.filter(p => !savedProductIds.has(p.id));
-        
-        // 同じ商品名で発注URL未設定の商品を除外
-        const finalStoreProducts = filteredStoreProducts.filter(storeProduct => {
-          const hasSameNameWithOrderUrl = updatedSavedProducts.some(savedProduct => 
-            savedProduct.name === storeProduct.name && savedProduct.supplier?.order_url
-          );
-          return !hasSameNameWithOrderUrl;
-        });
-        
-        const allProducts = [...finalStoreProducts, ...updatedSavedProducts];
-        setProducts(allProducts);
-        setFilteredProducts(allProducts);
-        
-        return updatedSavedProducts;
-      });
     }
   };
 
@@ -822,7 +425,7 @@ const Inventory: React.FC = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">在庫総額</p>
           <p className="text-2xl font-bold text-gray-900">
-                ¥{filteredProducts.reduce((sum, p) => sum + ((p.inventory?.current_stock || 0) * (p.cost || 0)), 0).toLocaleString()}
+                ¥{Math.floor(filteredProducts.reduce((sum, p) => sum + ((p.inventory?.current_stock || 0) * (p.cost || 0)), 0)).toLocaleString()}
           </p>
             </div>
           </div>
@@ -851,16 +454,16 @@ const Inventory: React.FC = () => {
               const status = expired ? 'expired' : getProductStatus(currentStock, minStock, maxStock);
 
               return (
-                <div key={product.barcode || product.id} className={`bg-white border rounded-lg p-4 shadow-sm ${!product.supplier?.order_url ? 'border-red-200 bg-red-50' : 'border-gray-200'} ${expired ? 'border-red-300 bg-red-100' : ''}`}>
+                <div key={product.barcode || product.id} className={`bg-white border rounded-lg p-4 shadow-sm ${!product.supplier?.order_url ? 'border-gray-200 bg-gray-50' : 'border-gray-200'} ${expired ? 'border-red-300 bg-red-100' : ''}`}>
                   {/* 商品名とカテゴリ */}
                   <div className="mb-3">
-                    <h4 className={`font-semibold text-lg ${!product.supplier?.order_url ? 'text-red-600' : 'text-gray-900'} ${expired ? 'text-red-800' : ''}`}>
+                    <h4 className={`font-semibold text-lg ${!product.supplier?.order_url ? 'text-gray-700' : 'text-gray-900'} ${expired ? 'text-gray-600' : ''}`}>
                       {product.name}
                       {!product.supplier?.order_url && (
-                        <span className="ml-2 text-xs text-red-500">(発注URL未設定)</span>
+                        <span className="ml-2 text-xs text-gray-500">(発注URL未設定)</span>
                       )}
                       {expired && (
-                        <span className="ml-2 text-xs text-red-600">(期限切れ)</span>
+                        <span className="ml-2 text-xs text-gray-600">(期限切れ)</span>
                       )}
                     </h4>
                     <p className="text-sm text-gray-600">{product.category}</p>
@@ -930,7 +533,7 @@ const Inventory: React.FC = () => {
                     )}
                     <button
                       onClick={() => deleteProduct(product.id)}
-                      className="px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg border border-red-500 shadow-sm hover:bg-red-700 transition-colors flex items-center justify-center"
+                      className="px-3 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 shadow-sm hover:bg-gray-300 transition-colors flex items-center justify-center"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -962,20 +565,20 @@ const Inventory: React.FC = () => {
                   const status = expired ? 'expired' : getProductStatus(currentStock, minStock, maxStock);
 
                   return (
-                    <tr key={product.barcode || product.id} className={`hover:bg-gray-50 ${!product.supplier?.order_url ? 'bg-red-50' : ''} ${expired ? 'bg-red-100' : ''}`}>
+                    <tr key={product.barcode || product.id} className={`hover:bg-gray-50 ${!product.supplier?.order_url ? 'bg-gray-50' : ''} ${expired ? 'bg-red-100' : ''}`}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm font-medium ${!product.supplier?.order_url ? 'text-red-600' : 'text-gray-900'} ${expired ? 'text-red-800' : ''}`}>
+                        <div className={`text-sm font-medium ${!product.supplier?.order_url ? 'text-gray-700' : 'text-gray-900'} ${expired ? 'text-gray-600' : ''}`}>
                           {product.name}
                           {!product.supplier?.order_url && (
-                            <span className="ml-2 text-xs text-red-500">(発注URL未設定)</span>
+                            <span className="ml-2 text-xs text-gray-500">(発注URL未設定)</span>
                           )}
                           {expired && (
-                            <span className="ml-2 text-xs text-red-600 font-bold">(期限切れ)</span>
+                            <span className="ml-2 text-xs text-gray-600 font-bold">(期限切れ)</span>
                           )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${!product.supplier?.order_url ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${!product.supplier?.order_url ? 'bg-gray-100 text-gray-700' : 'bg-gray-100 text-gray-800'}`}>
                       {product.category}
                     </span>
                   </td>
@@ -993,10 +596,10 @@ const Inventory: React.FC = () => {
                       </span>
                     </div>
                   </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${!product.supplier?.order_url ? 'text-red-600' : 'text-gray-900'} ${expired ? 'text-red-800' : ''}`}>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm ${!product.supplier?.order_url ? 'text-gray-700' : 'text-gray-900'} ${expired ? 'text-gray-600' : ''}`}>
                         ¥{product.cost.toLocaleString()}
                       </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-mono ${!product.supplier?.order_url ? 'text-red-500' : 'text-gray-500'} ${expired ? 'text-red-600' : ''}`}>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-mono ${!product.supplier?.order_url ? 'text-gray-500' : 'text-gray-500'} ${expired ? 'text-gray-600' : ''}`}>
                         {product.barcode}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -1041,7 +644,7 @@ const Inventory: React.FC = () => {
                       </button>
                           <button
                             onClick={() => deleteProduct(product.id)}
-                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg border border-red-500 shadow-sm hover:bg-red-700 transition-colors flex items-center space-x-2"
+                            className="px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg border border-gray-300 shadow-sm hover:bg-gray-300 transition-colors flex items-center space-x-2"
                           >
                             <Trash2 className="h-4 w-4" />
                             <span>削除</span>
@@ -1088,7 +691,20 @@ const Inventory: React.FC = () => {
           onSuccess={() => {
             setShowEditModal(false);
           }}
-          initialData={selectedProduct}
+          initialData={selectedProduct ? {
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            barcode: selectedProduct.barcode,
+            category: selectedProduct.category,
+            cost: selectedProduct.cost,
+            supplier_id: selectedProduct.supplier?.id || selectedProduct.supplier_id,
+            description: selectedProduct.description,
+            current_stock: selectedProduct.inventory?.current_stock || 0,
+            minimum_stock: selectedProduct.inventory?.minimum_stock || 0,
+            maximum_stock: selectedProduct.inventory?.maximum_stock || 0,
+            expiration_date: selectedProduct.inventory?.expiration_date,
+            inventory: selectedProduct.inventory,
+          } : null}
           suppliers={suppliers}
           onSupplierAdded={(newSupplier: Supplier) => {
             setSuppliers([...suppliers, newSupplier]);

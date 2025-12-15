@@ -3,19 +3,34 @@ import { useForm } from 'react-hook-form';
 import { Package, Camera, Save, X, AlertCircle } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
 import toast from 'react-hot-toast';
-import type { ProductForm as ProductFormType, Supplier } from '../types/database';
+import type { ProductForm as ProductFormType, Supplier, Inventory, Product } from '../types/database';
 import { searchProductByBarcode } from '../data/productMaster';
 import { fetchYahooProductByJAN } from '../lib/yahooShoppingApi';
+import { db } from '../lib/supabase';
+
+// 編集時に使用する拡張型（idとinventoryを含む）
+interface ProductFormWithDetails extends ProductFormType {
+  id?: string;
+  inventory?: Inventory;
+  [key: string]: unknown;
+}
+
+// 保存後に返される商品データの型
+interface SavedProductData extends Product {
+  inventory?: Inventory;
+  supplier?: Supplier;
+}
 
 interface ProductFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  initialData?: any;
+  initialData?: ProductFormWithDetails | null;
+  initialBarcode?: string;
   storeId: string;
   suppliers?: Supplier[];
   onSupplierAdded?: (supplier: Supplier) => void;
-  onProductSaved?: (product: any) => void;
+  onProductSaved?: (product: SavedProductData) => void;
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({
@@ -23,6 +38,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onClose,
   onSuccess,
   initialData,
+  initialBarcode,
   storeId,
   suppliers: externalSuppliers,
   onSupplierAdded,
@@ -68,9 +84,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
     if (isOpen && suppliers.length > 0) {
       if (initialData) {
         // 編集モード
-        Object.keys(initialData).forEach(key => {
-          if (key !== 'supplier' && key !== 'inventory') {
-            setValue(key as keyof ProductFormType, initialData[key]);
+        const formData = initialData as ProductFormWithDetails;
+        Object.keys(formData).forEach(key => {
+          if (key !== 'supplier' && key !== 'inventory' && key !== 'id') {
+            const value = formData[key];
+            if (value !== undefined) {
+              setValue(key as keyof ProductFormType, value as ProductFormType[keyof ProductFormType]);
+            }
           }
         });
         
@@ -80,16 +100,20 @@ const ProductForm: React.FC<ProductFormProps> = ({
         }
         
         // 在庫情報を設定
-        if (initialData.inventory) {
-          setValue('minimum_stock', initialData.inventory.minimum_stock || 0);
-          setValue('maximum_stock', initialData.inventory.maximum_stock || 100);
+        const formDataWithInventory = initialData as ProductFormWithDetails;
+        if (formDataWithInventory.inventory) {
+          setValue('minimum_stock', formDataWithInventory.inventory.minimum_stock || 0);
+          setValue('maximum_stock', formDataWithInventory.inventory.maximum_stock || 100);
         }
       } else {
         // 新規作成モード
-        reset();
+        // initialBarcodeがある場合はresetしない（後でuseEffectでセットされるため）
+        if (!initialBarcode) {
+          reset();
+        }
       }
     }
-  }, [isOpen, initialData, setValue, reset, suppliers]);
+  }, [isOpen, initialData, setValue, reset, suppliers, initialBarcode]);
 
   const loadSuppliers = async () => {
     try {
@@ -110,6 +134,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
           id: '650e8400-e29b-41d4-a716-446655440002',
           name: 'パン工房田中',
           contact_person: '田中花子',
+          email: 'hanako@pan-tanaka.com',
+          phone: '043-1111-2222',
           address: '千葉県千葉市美浜区1-1-1',
           order_url: 'https://jimoto-bokujou.com/order',
           created_at: new Date().toISOString(),
@@ -211,12 +237,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
     console.log('スキャンされたバーコード:', barcode);
     setValue('barcode', barcode);
     setShowScanner(false);
-    // スキャン時に入荷日を自動セット
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    setValue('arrival_date', `${yyyy}-${mm}-${dd}`);
     // バーコードから商品情報を検索
     searchProductInfo(barcode);
   };
@@ -229,7 +249,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
         toast.success(`商品が見つかりました: ${masterProduct.name}`);
         setValue('name', masterProduct.name);
         setValue('category', masterProduct.category);
-        if (masterProduct.defaultPrice) setValue('price', masterProduct.defaultPrice);
         if (masterProduct.defaultCost) setValue('cost', masterProduct.defaultCost);
         if (masterProduct.description) {
           setValue('description', masterProduct.description);
@@ -259,7 +278,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
         toast.success(`Yahoo!ショッピングから商品情報を取得しました: ${yahooProduct.name}`);
         setValue('name', yahooProduct.name || '');
         setValue('description', yahooProduct.description || '');
-        setValue('price', yahooProduct.price || '');
         setValue('category', yahooProduct.genreCategory?.name || '');
         // 画像やURLなど他にも必要ならここでセット可能
         setValue('minimum_stock', 10);
@@ -273,99 +291,141 @@ const ProductForm: React.FC<ProductFormProps> = ({
     }
   };
 
+  // initialBarcodeが渡された時の処理
+  useEffect(() => {
+    if (isOpen && initialBarcode && !initialData && suppliers.length > 0) {
+      // reset後にバーコードをセット
+      reset();
+      setTimeout(() => {
+        setValue('barcode', initialBarcode);
+        searchProductInfo(initialBarcode);
+      }, 100);
+    }
+  }, [isOpen, initialBarcode, initialData, setValue, suppliers]);
+
   const onSubmit = async (data: ProductFormType) => {
     setIsLoading(true);
+    
+    // デバッグ: 送信されるデータを確認
+    console.log('Form submission data:', {
+      current_stock: data.current_stock,
+      type: typeof data.current_stock,
+      minimum_stock: data.minimum_stock,
+      maximum_stock: data.maximum_stock
+    });
     
     try {
       // 選択された供給元を取得
       const selectedSupplier = suppliers.find(s => s.id === data.supplier_id);
 
-      // デモモード: ローカルストレージに保存
-      const productsKey = `products_${storeId}`;
-      const inventoriesKey = `inventories_${storeId}`;
-
-      const existingProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
-      const existingInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+      // 新規作成時のみバーコード重複チェック
+      if (!initialData && data.barcode) {
+        const { data: existingProduct, error: checkError } = await db.getProductByBarcode(data.barcode);
+        
+        if (existingProduct) {
+          toast.error(`このバーコード（${data.barcode}）は既に登録されています`);
+          setIsLoading(false);
+          return;
+        }
+        
+        if (checkError && checkError.code !== 'PGRST116') {
+          // PGRST116は「single()で結果が0件」エラーで、この場合は問題ない
+          console.error('Barcode check error:', checkError);
+          toast.error('バーコード確認中にエラーが発生しました');
+          setIsLoading(false);
+          return;
+        }
+      }
 
       if (initialData) {
         // 既存商品の更新
-        const productIndex = existingProducts.findIndex((p: any) => p.id === initialData.id);
-        if (productIndex !== -1) {
-          existingProducts[productIndex] = {
-            ...existingProducts[productIndex],
-            name: data.name,
-            barcode: data.barcode,
-            category: data.category,
-            price: data.price,
-            cost: data.cost,
-            supplier_id: data.supplier_id,
-            description: data.description,
-            updated_at: new Date().toISOString()
-          };
-          localStorage.setItem(productsKey, JSON.stringify(existingProducts));
+        const formWithDetails = initialData as ProductFormWithDetails;
+        if (!formWithDetails.id) {
+          toast.error('商品IDが見つかりません');
+          setIsLoading(false);
+          return;
+        }
+        
+        const { error: updateError } = await db.updateProduct(formWithDetails.id, {
+          name: data.name,
+          barcode: data.barcode,
+          category: data.category,
+          cost: data.cost,
+          supplier_id: data.supplier_id,
+          description: data.description
+        });
+
+        if (updateError) {
+          console.error('Error updating product:', updateError);
+          toast.error('商品の更新に失敗しました');
+          return;
         }
 
         // 在庫情報の更新
-        if (initialData.inventory?.id) {
-          const inventoryIndex = existingInventories.findIndex((inv: any) => inv.id === initialData.inventory.id);
-          if (inventoryIndex !== -1) {
-            existingInventories[inventoryIndex] = {
-              ...existingInventories[inventoryIndex],
-              current_stock: data.current_stock || 0,
-              minimum_stock: data.minimum_stock || 0,
-              maximum_stock: data.maximum_stock || 100,
-              expiration_date: data.expiration_date || '',
-              consumption_date: data.consumption_date || '',
-              arrival_date: data.arrival_date || '',
-              updated_at: new Date().toISOString()
-            };
-            localStorage.setItem(inventoriesKey, JSON.stringify(existingInventories));
+        if (formWithDetails.inventory?.id) {
+          const { error: inventoryError } = await db.updateInventory(formWithDetails.inventory.id, {
+            current_stock: data.current_stock || 0,
+            minimum_stock: data.minimum_stock || 0,
+            maximum_stock: data.maximum_stock || 100,
+            expiration_date: data.expiration_date || undefined
+          });
+
+          if (inventoryError) {
+            console.error('Error updating inventory:', inventoryError);
+            toast.error('在庫情報の更新に失敗しました');
+            return;
           }
         }
 
         toast.success('商品を正常に更新しました');
       } else {
         // 新規商品の作成
-        const newProductId = `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const newProduct = {
-          id: newProductId,
+        const { data: newProduct, error: productError } = await db.createProduct({
           name: data.name,
           barcode: data.barcode,
           category: data.category,
-          price: data.price,
           cost: data.cost,
           supplier_id: data.supplier_id,
-          description: data.description,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
+          description: data.description
+        });
 
-        existingProducts.push(newProduct);
-        localStorage.setItem(productsKey, JSON.stringify(existingProducts));
+        if (productError || !newProduct) {
+          console.error('Error creating product:', productError);
+          toast.error('商品の登録に失敗しました');
+          return;
+        }
 
         // 在庫情報の作成
-        const newInventoryId = `inventory-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const newInventory = {
-          id: newInventoryId,
-          product_id: newProductId,
+        const inventoryData = {
+          product_id: newProduct.id,
           store_id: storeId,
           current_stock: data.current_stock || 0,
           minimum_stock: data.minimum_stock || 0,
           maximum_stock: data.maximum_stock || 100,
-          expiration_date: data.expiration_date || '',
-          consumption_date: data.consumption_date || '',
-          arrival_date: data.arrival_date || '',
-          last_updated: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          expiration_date: data.expiration_date || undefined,
+          last_updated: new Date().toISOString()
         };
+        
+        console.log('Creating inventory with data:', inventoryData);
+        
+        const { data: newInventory, error: inventoryError } = await db.createInventory(inventoryData);
 
-        existingInventories.push(newInventory);
-        localStorage.setItem(inventoriesKey, JSON.stringify(existingInventories));
+        if (inventoryError) {
+          console.error('Error creating inventory:', inventoryError);
+          toast.error('在庫情報の登録に失敗しました');
+          return;
+        }
+        
+        console.log('Created inventory response:', newInventory);
 
         // 親コンポーネントに通知
-        if (onProductSaved) {
-          onProductSaved({ ...newProduct, inventory: newInventory, supplier: selectedSupplier });
+        if (onProductSaved && newProduct && newInventory) {
+          const productWithData: SavedProductData = {
+            ...newProduct,
+            inventory: newInventory,
+            supplier: selectedSupplier
+          };
+          onProductSaved(productWithData);
         }
 
         toast.success('商品を正常に登録しました');
@@ -374,7 +434,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       onSuccess();
       onClose();
       reset();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving product:', error);
       toast.error('商品の保存に失敗しました');
     } finally {
@@ -484,18 +544,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
               />
             </div>
 
-            {/* 消費期限 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                消費期限
-              </label>
-              <input
-                {...register('consumption_date')}
-                type="date"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
             {/* カテゴリ */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -582,48 +630,27 @@ const ProductForm: React.FC<ProductFormProps> = ({
               )}
             </div>
 
-            {/* 価格と原価 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  販売価格 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  {...register('price', { 
-                    required: '販売価格は必須です',
-                    min: { value: 0, message: '価格は0以上である必要があります' }
-                  })}
-                  type="number"
-                  placeholder="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                {errors.price && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.price.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  仕入れ値 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  {...register('cost', { 
-                    required: '仕入れ値は必須です',
-                    min: { value: 0, message: '仕入れ値は0以上である必要があります' }
-                  })}
-                  type="number"
-                  placeholder="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                {errors.cost && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.cost.message}
-                  </p>
-                )}
-              </div>
+            {/* 仕入れ値 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                仕入れ値 <span className="text-red-500">*</span>
+              </label>
+              <input
+                {...register('cost', { 
+                  required: '仕入れ値は必須です',
+                  valueAsNumber: true,
+                  min: { value: 0, message: '仕入れ値は0以上である必要があります' }
+                })}
+                type="number"
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {errors.cost && (
+                <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  {errors.cost.message}
+                </p>
+              )}
             </div>
 
             {/* 供給元 */}
@@ -799,7 +826,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                               }
                               
                               toast.success('新しい供給元を追加しました');
-                            } catch (error: any) {
+                            } catch (error) {
                               console.error('Error creating supplier:', error);
                               toast.error('供給元の追加に失敗しました');
                             } finally {

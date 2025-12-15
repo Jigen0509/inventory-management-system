@@ -5,8 +5,6 @@ import {
   Users, 
   Shield, 
   Database,
-  Palette,
-  Globe,
   Download,
   Save,
   AlertTriangle
@@ -47,7 +45,7 @@ const Settings: React.FC = () => {
     { id: 'data', label: 'データ管理', icon: Database }
   ];
 
-  const handleSettingChange = (key: string, value: any) => {
+  const handleSettingChange = (key: string, value: string | number | boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 

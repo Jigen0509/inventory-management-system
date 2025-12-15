@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Menu, User, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { Menu, User, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useStore } from '../contexts/StoreContext';
 import StoreSelector from './StoreSelector';
@@ -47,14 +47,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       await signOut();
       toast.success('ログアウトしました');
       navigate('/login');
-    } catch (error) {
+    } catch {
       toast.error('ログアウトに失敗しました');
     }
   };
 
-  const getGreeting = () => {
-    return 'Orderly';
-  };
+  // （不要関数削除）
 
   const getRoleText = (role: string) => {
     switch (role) {

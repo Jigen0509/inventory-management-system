@@ -2,11 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Settings, Save, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import type { Supplier } from '../types/database';
+
+interface SupplierFormData {
+  name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  address: string;
+  order_url: string;
+  category: string;
+}
 
 interface SupplierEditModalProps {
-  supplier: any;
+  supplier: Supplier | null;
   onClose: () => void;
-  onSave: (supplierData: any) => void;
+  onSave: (supplierData: Supplier) => void;
 }
 
 const SupplierEditModal: React.FC<SupplierEditModalProps> = ({
@@ -35,20 +46,20 @@ const SupplierEditModal: React.FC<SupplierEditModalProps> = ({
     }
   }, [supplier, setValue]);
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: SupplierFormData) => {
     try {
       setIsLoading(true);
       
-      const updatedSupplier = {
-        ...supplier,
+      const updatedSupplier: Supplier = {
+        ...(supplier as Supplier),
         ...data,
         updated_at: new Date().toISOString()
       };
       
       onSave(updatedSupplier);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating supplier:', error);
-      toast.error(error.message || '供給元の更新に失敗しました');
+      toast.error(error instanceof Error ? error.message : '供給元の更新に失敗しました');
     } finally {
       setIsLoading(false);
     }

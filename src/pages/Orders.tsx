@@ -6,7 +6,6 @@ import {
   Filter, 
   Eye, 
   Edit2, 
-  Truck,
   Package,
   CheckCircle,
   Clock,
@@ -24,10 +23,20 @@ import ManualOrderModal from '../components/ManualOrderModal';
 import SupplierEditModal from '../components/SupplierEditModal';
 import { db, supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import type { OrderWithItems } from '../types/database';
+import type { OrderWithItems, Supplier, OrderItem, Order, Product } from '../types/database';
+
+// ローカル拡張型（DBヘルパーの戻り値に合わせる）
+type OrderItemWithProduct = OrderItem & { product: Product | null };
+type OrderWithItemsAndSupplier = Order & { items: OrderItemWithProduct[]; supplier: Supplier | null };
+
+interface LocalOrder {
+  id: string;
+  status: string;
+  updated_at?: string;
+}
 
 const Orders: React.FC = () => {
-  const { user, isDatabaseMode } = useAuth();
+  const { isDatabaseMode } = useAuth();
   const { currentStore } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -35,12 +44,12 @@ const Orders: React.FC = () => {
   const [showManualOrder, setShowManualOrder] = useState(false);
   const [showSupplierManagement, setShowSupplierManagement] = useState(false);
   const [showSupplierEdit, setShowSupplierEdit] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [showOrderDetail, setShowOrderDetail] = useState(false);
   const [showOrderEdit, setShowOrderEdit] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
-  const [orders, setOrders] = useState<OrderWithItems[]>([]);
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItemsAndSupplier | null>(null);
+  const [orders, setOrders] = useState<OrderWithItemsAndSupplier[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const orderStatuses = [
@@ -74,7 +83,7 @@ const Orders: React.FC = () => {
         }
         
         if (dbOrders) {
-          setOrders(dbOrders);
+          setOrders(dbOrders as OrderWithItemsAndSupplier[]);
         }
       } else {
         // デモ用の発注データ
@@ -321,13 +330,13 @@ const Orders: React.FC = () => {
       
       setSuppliers(prev => prev.filter(s => s.id !== supplierId));
       toast.success(`${supplierName}を削除しました`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting supplier:', error);
-      toast.error(error.message || '供給元の削除に失敗しました');
+      toast.error(error instanceof Error ? error.message : '供給元の削除に失敗しました');
     }
   };
 
-  const updateSupplier = async (supplierData: any) => {
+  const updateSupplier = async (supplierData: Supplier) => {
     try {
       if (isDatabaseMode) {
         const { error } = await db.updateSupplier(supplierData.id, supplierData);
@@ -340,9 +349,9 @@ const Orders: React.FC = () => {
       toast.success('供給元を更新しました');
       setShowSupplierEdit(false);
       setEditingSupplier(null);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating supplier:', error);
-      toast.error(error.message || '供給元の更新に失敗しました');
+      toast.error(error instanceof Error ? error.message : '供給元の更新に失敗しました');
     }
   };
 
@@ -369,16 +378,16 @@ const Orders: React.FC = () => {
         // デモモードではローカルストレージから削除
         const storeId = currentStore?.id || '1';
         const manualOrdersKey = `store_${storeId}_manual_orders`;
-        const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
-        const updatedManualOrders = manualOrders.filter((o: any) => o.id !== orderId);
+        const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]') as LocalOrder[];
+        const updatedManualOrders = manualOrders.filter((o) => o.id !== orderId);
         localStorage.setItem(manualOrdersKey, JSON.stringify(updatedManualOrders));
       }
       
       setOrders(prev => prev.filter(o => o.id !== orderId));
       toast.success(`${orderNumber}を削除しました`);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting order:', error);
-      toast.error(error.message || '発注の削除に失敗しました');
+      toast.error(error instanceof Error ? error.message : '発注の削除に失敗しました');
     }
   };
 
@@ -386,7 +395,7 @@ const Orders: React.FC = () => {
     try {
       if (isDatabaseMode) {
         // データベースのステータスを更新
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('orders')
           .update({ status: newStatus, updated_at: new Date().toISOString() })
           .eq('id', orderId);
@@ -398,8 +407,8 @@ const Orders: React.FC = () => {
         // デモモードではローカルストレージを更新
         const storeId = currentStore?.id || '1';
         const manualOrdersKey = `store_${storeId}_manual_orders`;
-        const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
-        const updatedManualOrders = manualOrders.map((o: any) => 
+        const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]') as LocalOrder[];
+        const updatedManualOrders = manualOrders.map((o) => 
           o.id === orderId ? { ...o, status: newStatus, updated_at: new Date().toISOString() } : o
         );
         localStorage.setItem(manualOrdersKey, JSON.stringify(updatedManualOrders));
@@ -407,15 +416,15 @@ const Orders: React.FC = () => {
       
       // ローカル状態を更新
       setOrders(prev => prev.map(o => 
-        o.id === orderId ? { ...o, status: newStatus as any, updated_at: new Date().toISOString() } : o
+        o.id === orderId ? { ...o, status: newStatus as OrderWithItems['status'], updated_at: new Date().toISOString() } : o
       ));
       
       const statusLabel = orderStatuses.find(s => s.key === newStatus)?.label || newStatus;
       toast.success(`発注ステータスを「${statusLabel}」に更新しました`);
       setShowOrderEdit(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating order status:', error);
-      toast.error(error.message || 'ステータスの更新に失敗しました');
+      toast.error(error instanceof Error ? error.message : 'ステータスの更新に失敗しました');
     }
   };
 

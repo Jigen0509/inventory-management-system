@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Store, ChevronDown, Check, Plus } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import type { Store as StoreType } from '../types/database';
 
@@ -15,7 +14,6 @@ const StoreSelector: React.FC<StoreSelectorProps> = ({
   onStoreChange,
   showAddButton = false
 }) => {
-  const { user } = useAuth();
   const [stores, setStores] = useState<StoreType[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

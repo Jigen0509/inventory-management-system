@@ -3,59 +3,111 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useAuth } from '../contexts/AuthContext';
 import { allProducts } from '../data/products';
-import { db } from '../lib/supabase';
+import { db, supabase } from '../lib/supabase';
 import { 
   Package, 
   ShoppingCart, 
   AlertTriangle, 
   TrendingUp,
-  Users,
   Bell,
   ArrowUp,
   ArrowDown
 } from 'lucide-react';
 
+interface LocalOrder {
+  id: string;
+  status: string;
+}
+
+interface LocalProduct {
+  id: string;
+  name: string;
+  category: string;
+}
+
+interface LocalInventory {
+  product_id: string;
+  current_stock: number;
+  minimum_stock: number;
+  expiration_date?: string;
+}
+
+interface SalesRecord {
+  total_amount: number | null;
+}
+
+interface InventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  inventory?: {
+    current_stock: number;
+    minimum_stock: number;
+    expiration_date?: string;
+  };
+}
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentStore } = useStore();
   const { user, isDatabaseMode } = useAuth();
-  const [unreadChatCount, setUnreadChatCount] = useState(3); // デモ用の未読チャット数
-  const [inventoryData, setInventoryData] = useState<any[]>([]);
+  const [inventoryData, setInventoryData] = useState<InventoryItem[]>([]);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [todaySalesAmount, setTodaySalesAmount] = useState(0);
 
-  // 発注中の商品を取得
+  // 発注中の商品と本日の売上を取得
   useEffect(() => {
-    const loadPendingOrders = async () => {
+    const loadStoreMetrics = async () => {
       try {
         const storeId = currentStore?.id || user?.store_id;
         
         if (!storeId) {
           setPendingOrdersCount(0);
+          setTodaySalesAmount(0);
           return;
         }
         
         if (isDatabaseMode) {
-          const { data: orders, error } = await db.getOrders(storeId);
-          if (error || !orders) {
+          const { data: orders, error: ordersError } = await db.getOrders(storeId);
+          if (!ordersError && orders) {
+            const count = orders.filter((o) => o.status === 'pending' || o.status === 'draft').length;
+            setPendingOrdersCount(count);
+          } else {
             setPendingOrdersCount(0);
-            return;
           }
-          const count = orders.filter((o: any) => o.status === 'pending' || o.status === 'draft').length;
-          setPendingOrdersCount(count);
+          
+          // 本日の売上を取得
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const { data: sales, error: salesError } = await supabase
+            .from('sales')
+            .select('total_amount')
+            .eq('store_id', storeId)
+            .gte('sales_date', today.toISOString())
+            .eq('status', 'confirmed');
+          
+          if (!salesError && sales) {
+            const total = sales.reduce((sum: number, s: SalesRecord) => sum + (s.total_amount || 0), 0);
+            setTodaySalesAmount(total);
+          } else {
+            setTodaySalesAmount(0);
+          }
         } else {
           // デモモードではローカルストレージから取得
           const manualOrdersKey = `store_${storeId}_manual_orders`;
-          const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
-          const count = manualOrders.filter((o: any) => o.status === 'pending' || o.status === 'draft').length;
+          const manualOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]') as LocalOrder[];
+          const count = manualOrders.filter((o) => o.status === 'pending' || o.status === 'draft').length;
           setPendingOrdersCount(count);
+          setTodaySalesAmount(0);
         }
       } catch (error) {
-        console.error('Error getting pending orders:', error);
+        console.error('Error getting store metrics:', error);
         setPendingOrdersCount(0);
+        setTodaySalesAmount(0);
       }
     };
 
-    loadPendingOrders();
+    loadStoreMetrics();
   }, [currentStore?.id, user?.store_id, isDatabaseMode]);
 
   // 在庫データを取得
@@ -88,12 +140,12 @@ const Dashboard: React.FC = () => {
           const storeId = currentStore?.id || user?.store_id || '1';
           const productsKey = `store_${storeId}_products`;
           const inventoriesKey = `store_${storeId}_inventories`;
-          const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]');
-          const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]');
+          const storedProducts = JSON.parse(localStorage.getItem(productsKey) || '[]') as LocalProduct[];
+          const storedInventories = JSON.parse(localStorage.getItem(inventoriesKey) || '[]') as LocalInventory[];
           
           // 商品と在庫情報を結合
-          const productsWithInventory = storedProducts.map((product: any) => {
-            const inventory = storedInventories.find((inv: any) => inv.product_id === product.id);
+          const productsWithInventory: InventoryItem[] = storedProducts.map((product) => {
+            const inventory = storedInventories.find((inv) => inv.product_id === product.id);
             return { ...product, inventory };
           });
           
@@ -161,21 +213,21 @@ const Dashboard: React.FC = () => {
     const storeData = {
       '550e8400-e29b-41d4-a716-446655440001': { // 本店
         totalProducts: totalProducts,
-        todaySales: '¥52,800',
+        todaySales: `¥${todaySalesAmount.toLocaleString()}`,
         pendingOrders: pendingOrdersCount,
         expiredItems: expiredItems,
         lowStockItems: lowStockItems
       },
       '550e8400-e29b-41d4-a716-446655440002': { // 支店
         totalProducts: totalProducts,
-        todaySales: '¥38,500',
+        todaySales: `¥${todaySalesAmount.toLocaleString()}`,
         pendingOrders: pendingOrdersCount,
         expiredItems: expiredItems,
         lowStockItems: lowStockItems
       },
       '550e8400-e29b-41d4-a716-446655440003': { // 名古屋店
         totalProducts: totalProducts,
-        todaySales: '¥41,200',
+        todaySales: `¥${todaySalesAmount.toLocaleString()}`,
         pendingOrders: pendingOrdersCount,
         expiredItems: expiredItems,
         lowStockItems: lowStockItems
@@ -226,33 +278,6 @@ const Dashboard: React.FC = () => {
   ];
 
   const lowStockItems = storeData.lowStockItems;
-
-  // 店舗ごとの最近のアクティビティ
-  const getRecentActivity = (storeId: string) => {
-    const activities = {
-      '550e8400-e29b-41d4-a716-446655440001': [ // 本店
-        { time: '10:30', action: '商品入荷', detail: 'りんごジュース 12本追加', user: '田中さん' },
-        { time: '09:45', action: '注文処理', detail: '注文#1234を発送済みに更新', user: '佐藤さん' },
-        { time: '09:20', action: 'チャット', detail: '在庫確認の依頼が届きました', user: '山田さん' },
-        { time: '08:50', action: '期限警告', detail: '食パン（3点）の消費期限が近づいています', user: 'システム' }
-      ],
-      '550e8400-e29b-41d4-a716-446655440002': [ // 支店
-        { time: '11:15', action: '商品入荷', detail: 'お米（5kg） 20袋追加', user: '鈴木さん' },
-        { time: '10:30', action: '注文処理', detail: '注文#5678を発送済みに更新', user: '高橋さん' },
-        { time: '09:45', action: 'チャット', detail: '支店間移動の依頼が届きました', user: '本店' },
-        { time: '09:00', action: '期限警告', detail: '冷凍うどん（5点）の消費期限が近づいています', user: 'システム' }
-      ],
-      '550e8400-e29b-41d4-a716-446655440003': [ // 名古屋店
-        { time: '11:00', action: '商品入荷', detail: 'カップ麺 30個追加', user: '伊藤さん' },
-        { time: '10:15', action: '注文処理', detail: '注文#9012を発送済みに更新', user: '中村さん' },
-        { time: '09:30', action: 'チャット', detail: '名古屋店からの在庫確認依頼', user: '支店' },
-        { time: '08:45', action: '期限警告', detail: 'お茶（8点）の消費期限が近づいています', user: 'システム' }
-      ]
-    };
-    return activities[storeId as keyof typeof activities] || activities['550e8400-e29b-41d4-a716-446655440001'];
-  };
-
-  const recentActivity = getRecentActivity(currentStore?.id || '550e8400-e29b-41d4-a716-446655440001');
 
   return (
     <div className="space-y-6">
@@ -307,7 +332,7 @@ const Dashboard: React.FC = () => {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* 在庫不足アラート */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-6 border-b border-gray-100">
@@ -347,28 +372,6 @@ const Dashboard: React.FC = () => {
                       発注不可
                     </span>
                   )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 最近のアクティビティ */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-6 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900">最近のアクティビティ</h3>
-          </div>
-          <div className="p-6 space-y-4">
-            {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-start space-x-3">
-                <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                    <span className="text-xs text-gray-500">{activity.time}</span>
-                  </div>
-                  <p className="text-sm text-gray-600">{activity.detail}</p>
-                  <p className="text-xs text-blue-600">{activity.user}</p>
                 </div>
               </div>
             ))}

@@ -342,17 +342,18 @@ const ManualOrderModal: React.FC<ManualOrderModalProps> = ({
         };
 
         // ローカルストレージに保存
-        const existingOrders = JSON.parse(localStorage.getItem('manualOrders') || '[]');
+        const manualOrdersKey = `store_${storeId}_manual_orders`;
+        const existingOrders = JSON.parse(localStorage.getItem(manualOrdersKey) || '[]');
         existingOrders.push(newOrder);
-        localStorage.setItem('manualOrders', JSON.stringify(existingOrders));
+        localStorage.setItem(manualOrdersKey, JSON.stringify(existingOrders));
       }
 
       toast.success('手動発注を作成しました');
       onOrderCreated();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating manual order:', error);
-      toast.error(error.message || '手動発注の作成に失敗しました');
+      toast.error(error instanceof Error ? error.message : '手動発注の作成に失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -435,7 +436,7 @@ const ManualOrderModal: React.FC<ManualOrderModalProps> = ({
             </div>
 
             <div className="space-y-3">
-              {orderItems.map((item, index) => (
+              {orderItems.map((item) => (
                 <div key={item.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border border-gray-200 rounded-lg">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">

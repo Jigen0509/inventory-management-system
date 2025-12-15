@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { User, UserWithStore } from '../types/database';
+import type { UserWithStore } from '../types/database';
 import { auth, db } from '../lib/supabase';
 import { checkMigrationStatus, migrateAllData } from '../utils/migration';
 
@@ -44,7 +44,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                                import.meta.env.VITE_SUPABASE_ANON_KEY && 
                                import.meta.env.VITE_SUPABASE_ANON_KEY !== 'your-anon-key';
       
-      if (hasSupabaseConfig) {
+      // 本番環境モードを有効化（Supabase使用）
+      const enableDatabaseMode = true;
+      
+      if (hasSupabaseConfig && enableDatabaseMode) {
         setIsDatabaseMode(true);
         
         // データ移行をチェック
@@ -178,6 +181,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return { success: false, error: error.message };
         }
 
+        // セッションを確実にクライアントへ反映
+        if (data.session) {
+          await auth.setSession(data.session.access_token, data.session.refresh_token);
+        }
+
         if (data.user) {
           // ユーザープロファイルを取得
           const { data: userProfile, error: profileError } = await db.getUserProfile(data.user.id);
@@ -193,7 +201,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, error: 'ログインに失敗しました' };
       } else {
         // デモモード
-        if (password !== 'password') {
+        if (password !== 'DemoPass2025!') {
           return { success: false, error: 'パスワードが正しくありません' };
         }
 

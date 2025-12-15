@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -6,44 +6,154 @@ import {
   DollarSign, 
   Package, 
   ShoppingCart,
-  Calendar,
-  Filter,
   Download
 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { useStore } from '../contexts/StoreContext';
 
 const Analytics: React.FC = () => {
   const [timeRange, setTimeRange] = useState('7days');
-  const [category, setCategory] = useState('all');
+  const { isDatabaseMode } = useAuth();
+  const { currentStore } = useStore();
+  const [salesData, setSalesData] = useState<{ date: string; sales: number; orders: number }[]>([]);
+  const [topProducts, setTopProducts] = useState<{ name: string; sales: number; quantity: number; growth?: number }[]>([]);
+  const [categoryData, setCategoryData] = useState<{ name: string; sales: number; percentage: number }[]>([]);
+  const [productCount, setProductCount] = useState<number>(0);
 
-  const salesData = [
-    { date: '1/15', sales: 45000, orders: 25, products: 120 },
-    { date: '1/16', sales: 52000, orders: 28, products: 135 },
-    { date: '1/17', sales: 48000, orders: 26, products: 128 },
-    { date: '1/18', sales: 61000, orders: 32, products: 145 },
-    { date: '1/19', sales: 55000, orders: 29, products: 138 },
-    { date: '1/20', sales: 58000, orders: 31, products: 142 },
-    { date: '1/21', sales: 62000, orders: 33, products: 148 }
-  ];
+  // 期間の開始日を計算
+  const startDate = useMemo(() => {
+    const now = new Date();
+    const days = timeRange === '90days' ? 89 : timeRange === '30days' ? 29 : 6; // 過去7/30/90日
+    const d = new Date(now);
+    d.setDate(now.getDate() - days);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [timeRange]);
 
-  const topProducts = [
-    { name: 'りんごジュース', sales: 15000, quantity: 100, growth: 12 },
-    { name: '食パン', sales: 12000, quantity: 80, growth: 8 },
-    { name: '牛乳（1L）', sales: 10000, quantity: 60, growth: -5 },
-    { name: 'お米（5kg）', sales: 8000, quantity: 20, growth: 15 },
-    { name: '冷凍うどん', sales: 6000, quantity: 50, growth: 3 }
-  ];
+  useEffect(() => {
+    const load = async () => {
+      if (!isDatabaseMode) {
+        // デモモード: 既存の固定値を流用
+        const demoSales = [
+          { date: '1/15', sales: 45000, orders: 25 },
+          { date: '1/16', sales: 52000, orders: 28 },
+          { date: '1/17', sales: 48000, orders: 26 },
+          { date: '1/18', sales: 61000, orders: 32 },
+          { date: '1/19', sales: 55000, orders: 29 },
+          { date: '1/20', sales: 58000, orders: 31 },
+          { date: '1/21', sales: 62000, orders: 33 }
+        ];
+        setSalesData(demoSales);
+        setTopProducts([
+          { name: 'りんごジュース', sales: 15000, quantity: 100, growth: 12 },
+          { name: '食パン', sales: 12000, quantity: 80, growth: 8 },
+          { name: '牛乳（1L）', sales: 10000, quantity: 60, growth: -5 },
+          { name: 'お米（5kg）', sales: 8000, quantity: 20, growth: 15 },
+          { name: '冷凍うどん', sales: 6000, quantity: 50, growth: 3 }
+        ]);
+        setCategoryData([
+          { name: '飲み物', sales: 25000, percentage: 35 },
+          { name: 'パン類', sales: 18000, percentage: 25 },
+          { name: '乳製品', sales: 15000, percentage: 21 },
+          { name: '主食', sales: 8000, percentage: 11 },
+          { name: 'その他', sales: 5000, percentage: 8 }
+        ]);
+        setProductCount(148);
+        return;
+      }
 
-  const categoryData = [
-    { name: '飲み物', sales: 25000, percentage: 35 },
-    { name: 'パン類', sales: 18000, percentage: 25 },
-    { name: '乳製品', sales: 15000, percentage: 21 },
-    { name: '主食', sales: 8000, percentage: 11 },
-    { name: 'その他', sales: 5000, percentage: 8 }
-  ];
+      const storeId = currentStore?.id;
+      if (!storeId) return;
+
+      setLoading(true);
+      try {
+        // 売上（sales）を取得し、日別集計
+        const { data: sales, error: salesError } = await supabase
+          .from('sales')
+          .select('id, sales_date, total_amount')
+          .eq('store_id', storeId)
+          .gte('sales_date', startDate.toISOString())
+          .order('sales_date', { ascending: true });
+        if (salesError) throw salesError;
+
+        const salesByDate: Record<string, { sales: number; orders: number }> = {};
+        (sales || []).forEach((s) => {
+          const dateKey = new Date(s.sales_date).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
+          if (!salesByDate[dateKey]) {
+            salesByDate[dateKey] = { sales: 0, orders: 0 };
+          }
+          salesByDate[dateKey].sales += s.total_amount || 0;
+          salesByDate[dateKey].orders += 1;
+        });
+        const salesList = Object.entries(salesByDate).map(([date, v]) => ({ date, sales: v.sales, orders: v.orders }));
+        setSalesData(salesList);
+
+        // 売上明細から商品別集計
+        const { data: details, error: detailsError } = await supabase
+          .from('sales_details')
+          .select('subtotal, quantity_sold, menu_name_detected, menu:menus(name, category), sales:sales!inner(store_id)')
+          .eq('is_matched', true)
+          .eq('sales.store_id', storeId);
+        if (detailsError) throw detailsError;
+
+        const productAgg: Record<string, { sales: number; quantity: number; category: string }> = {};
+        (details || []).forEach((d) => {
+          const name = d.menu?.name || d.menu_name_detected || '不明';
+          const cat = d.menu?.category || 'その他';
+          if (!productAgg[name]) {
+            productAgg[name] = { sales: 0, quantity: 0, category: cat };
+          }
+          productAgg[name].sales += d.subtotal || 0;
+          productAgg[name].quantity += d.quantity_sold || 0;
+          productAgg[name].category = cat;
+        });
+
+        const productList = Object.entries(productAgg)
+          .map(([name, v]) => ({ name, sales: v.sales, quantity: v.quantity }))
+          .sort((a, b) => b.sales - a.sales)
+          .slice(0, 5);
+        setTopProducts(productList);
+
+        // カテゴリ別集計
+        const categoryAgg: Record<string, number> = {};
+        Object.values(productAgg).forEach((v) => {
+          categoryAgg[v.category] = (categoryAgg[v.category] || 0) + v.sales;
+        });
+        const totalCatSales = Object.values(categoryAgg).reduce((sum, v) => sum + v, 0) || 1;
+        const categoryList = Object.entries(categoryAgg)
+          .map(([name, sales]) => ({
+            name,
+            sales,
+            percentage: Math.round((sales / totalCatSales) * 1000) / 10,
+          }))
+          .sort((a, b) => b.sales - a.sales);
+        setCategoryData(categoryList);
+
+        // 商品数
+        const { count: productCnt, error: productError } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true });
+        if (productError) throw productError;
+        setProductCount(productCnt || 0);
+      } catch (error) {
+        console.error('売上データ取得に失敗しました', error);
+        // 失敗時はデモ値にフォールバック
+        setSalesData([]);
+        setTopProducts([]);
+        setCategoryData([]);
+        setProductCount(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [isDatabaseMode, currentStore?.id, startDate, timeRange]);
 
   const totalSales = salesData.reduce((sum, day) => sum + day.sales, 0);
   const totalOrders = salesData.reduce((sum, day) => sum + day.orders, 0);
-  const avgOrderValue = totalSales / totalOrders;
+  const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
   return (
     <div className="space-y-6">
@@ -131,7 +241,7 @@ const Analytics: React.FC = () => {
             </div>
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">148</p>
+            <p className="text-2xl font-bold text-gray-900">{productCount}</p>
             <p className="text-sm text-gray-600">商品種類数</p>
           </div>
         </div>

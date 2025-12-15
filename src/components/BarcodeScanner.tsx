@@ -1,4 +1,6 @@
+
 import React, { useEffect, useRef, useState } from 'react';
+import { fetchYahooProductByJAN } from '../lib/yahooShoppingApi';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, X, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -24,6 +26,10 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [scanHistory, setScanHistory] = useState<string[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
+  const manualInputRef = useRef<HTMLInputElement | null>(null);
+  const [manualInputValue, setManualInputValue] = useState("");
+  const [productName, setProductName] = useState("");
+  const productNameInputRef = useRef<HTMLInputElement | null>(null);
 
   // モバイル判定
   useEffect(() => {
@@ -36,6 +42,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // 手動入力欄が開いた直後にスキャン値を自動入力
+  useEffect(() => {
+    if (showManualInput && lastScannedCode) {
+      setManualInputValue(lastScannedCode);
+    }
+  }, [showManualInput, lastScannedCode]);
 
   // スキャナーの初期化とクリーンアップ
   useEffect(() => {
@@ -66,7 +79,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           throw new Error('カメラが見つかりませんでした');
         }
 
-        let selectedCamera = devices.find(device => 
+        const selectedCamera = devices.find(device => 
           device.label.toLowerCase().includes('back') || 
           device.label.toLowerCase().includes('rear') ||
           device.label.toLowerCase().includes('environment')
@@ -77,23 +90,21 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         scanner = new Html5Qrcode(scannerId);
         scannerRef.current = scanner;
 
-        // スキャンボックスのサイズを大きく設定（読み取り範囲を拡大）
-        const isMobileDevice = window.innerWidth < 768;
-        const qrboxSize = isMobileDevice ? 
-          { width: Math.min(400, window.innerWidth * 0.85), height: Math.min(200, window.innerWidth * 0.45) } : 
-          { width: 500, height: 200 };
 
+        const isMobileDevice = window.innerWidth < 768;
         await scanner.start(
           selectedCamera.id,
           {
             fps: 18, // 標準的なフレームレート
-            qrbox: qrboxSize,
-            aspectRatio: 2.0,
+            
+            qrbox: { width: 400, height: 130 },
+
+            // aspectRatio: 2.0,
             videoConstraints: {
               facingMode: isMobileDevice ? { exact: 'environment' } : undefined,
               width: { ideal: 1280 },
-              height: { ideal: 720 }
-              // 互換性重視: focusMode, torch, zoom, min/max等は指定しない
+              height: { ideal: 720 },
+              advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet]
             }
           },
           (decodedText) => {
@@ -108,10 +119,14 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           setIsScanning(true);
           console.log('Scanner started successfully');
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Scanner initialization failed:', error);
         if (mounted) {
-          toast.error('カメラの起動に失敗しました: ' + (error.message || ''));
+          // デモ用：カメラなしでも進める
+          console.warn('カメラが利用できません。デモモードで続行します。');
+          setIsScanning(false);
+          // エラートーストを表示しない（デモ用）
+          // toast.error('カメラの起動に失敗しました: ' + (error.message || ''));
         }
       }
     };
@@ -164,10 +179,27 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     console.log('BarcodeScanner: 読み取ったバーコード =', barcode);
     setLastScannedCode(barcode);
     setScanHistory(prev => [barcode, ...prev.slice(0, 4)]);
-    
+
+    // 手動入力欄が非表示なら開く
+    if (!showManualInput) setShowManualInput(true);
+
+    // Yahoo!ショッピングAPIから商品名を取得
+    fetchYahooProductByJAN(barcode)
+      .then(product => {
+        if (product && product.name) {
+          setProductName(product.name);
+          if (productNameInputRef.current) {
+            productNameInputRef.current.value = product.name;
+          }
+        } else {
+          setProductName("");
+        }
+      })
+      .catch(() => setProductName(""));
+
     toast.success(`バーコードを読み取りました: ${barcode}`);
     onScan(barcode);
-    
+
     setTimeout(() => {
       setLastScannedCode(null);
     }, 2000);
@@ -175,12 +207,11 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
 
   const handleManualInput = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const barcode = formData.get('barcode') as string;
-    
+    const barcode = manualInputValue;
     if (barcode.trim()) {
       handleScanSuccess(barcode.trim());
-      e.currentTarget.reset();
+      setManualInputValue("");
+      if (manualInputRef.current) manualInputRef.current.value = "";
     }
   };
 
@@ -210,21 +241,11 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             <div className="w-full h-full bg-black relative" style={{ minHeight: '400px' }}>
               {/* カメラプレビュー領域 */}
               <div ref={containerRef} className="absolute inset-0 w-full h-full" />
-              {/* 白いガイド枠（カメラ映像の上に重ねる） */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                <div className="w-80 h-40 border-8 border-white rounded-lg opacity-90 shadow-lg relative">
-                  {/* 四隅の緑ガイド */}
-                  <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-green-400"></div>
-                  <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-green-400"></div>
-                  <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-green-400"></div>
-                  <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-green-400"></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <p className="text-white text-sm font-semibold bg-black bg-opacity-50 px-3 py-1 rounded">
-                      バーコードをここに
-                    </p>
-                  </div>
-                </div>
-              </div>
+              {/* 独自の白いガイド枠（例: 右下に200x100px） */}
+              <div
+                className="absolute border-4 border-white z-20"
+                style={{ width: 200, height: 100, right: 40, bottom: 40 }}
+              />
               {/* カメラ起動中のオーバーレイ */}
               {!isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center text-white z-30 pointer-events-none">
@@ -262,6 +283,18 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
                   placeholder="バーコードを手動で入力"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg text-black"
                   autoFocus
+                  ref={manualInputRef}
+                  value={manualInputValue}
+                  onChange={e => setManualInputValue(e.target.value)}
+                />
+                <input
+                  name="productName"
+                  type="text"
+                  placeholder="商品名（自動入力）"
+                  className="w-full mt-2 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg text-black"
+                  ref={productNameInputRef}
+                  value={productName}
+                  onChange={e => setProductName(e.target.value)}
                 />
                 <div className="flex space-x-3">
                   <button
@@ -283,31 +316,31 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           </div>
         </div>
       ) : (
-        // デスクトップ用モーダル表示
-        <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        // デスクトップ用モーダル表示（白い部分を排除し黒背景に統一）
+        <div className="bg-black rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
           {/* ヘッダー */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
-              <Camera className="h-6 w-6 text-blue-600" />
-              <h2 className="text-xl font-semibold text-gray-900">バーコードスキャン</h2>
+              <Camera className="h-6 w-6 text-blue-400" />
+              <h2 className="text-xl font-semibold text-white">バーコードスキャン</h2>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800"
             >
               <X className="h-6 w-6" />
             </button>
           </div>
 
-          {/* スキャナーエリア（高さを拡大して読み取り範囲を広げる） */}
+          {/* スキャナーエリア（白い部分を排除し黒背景） */}
           <div className="mb-6">
             <div 
               ref={containerRef}
-              className="w-full bg-gray-100 rounded-lg relative overflow-hidden"
+              className="w-full bg-black rounded-lg relative overflow-hidden"
               style={{ height: '450px' }}
             >
               {!isScanning && (
-                <div className="absolute inset-0 flex items-center justify-center text-gray-500 z-10 pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center text-gray-300 z-10 pointer-events-none">
                   <div className="text-center">
                     <Camera className="h-12 w-12 mx-auto mb-2" />
                     <p>カメラを起動中...</p>
@@ -316,20 +349,23 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               )}
             </div>
             {/* ヒントテキスト */}
-            <p className="mt-3 text-sm text-gray-600 text-center">
+            <p className="mt-3 text-sm text-gray-300 text-center">
               📱 バーコードをスキャンエリアの中央に合わせてください。横長のバーコードに最適化されています。
             </p>
           </div>
 
           {/* 手動入力 */}
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">手動入力</h3>
+            <h3 className="text-sm font-medium text-gray-200 mb-3">手動入力</h3>
             <form onSubmit={handleManualInput} className="flex space-x-3">
               <input
                 name="barcode"
                 type="text"
                 placeholder="バーコードを手動で入力"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-black text-white"
+                ref={manualInputRef}
+                value={manualInputValue}
+                onChange={e => setManualInputValue(e.target.value)}
               />
               <button
                 type="submit"
@@ -343,20 +379,20 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           {/* スキャン履歴 */}
           {scanHistory.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">最近のスキャン</h3>
+              <h3 className="text-sm font-medium text-gray-200 mb-3">最近のスキャン</h3>
               <div className="space-y-2">
                 {scanHistory.map((code, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    className="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
                   >
                     <div className="flex items-center space-x-3">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="font-mono text-sm">{code}</span>
+                      <CheckCircle className="h-4 w-4 text-green-400" />
+                      <span className="font-mono text-sm text-white">{code}</span>
                     </div>
                     <button
                       onClick={() => onScan(code)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
+                      className="text-blue-400 hover:text-blue-200 text-sm"
                     >
                       再使用
                     </button>
@@ -367,12 +403,12 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           )}
 
           {/* 使用方法 */}
-          <div className="bg-blue-50 rounded-lg p-4">
+          <div className="bg-gray-900 rounded-lg p-4">
             <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-800">
+              <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5" />
+              <div className="text-sm text-blue-200">
                 <p className="font-medium mb-1">使用方法:</p>
-                <ul className="space-y-1 text-blue-700">
+                <ul className="space-y-1 text-blue-300">
                   <li>• カメラにバーコードを向けてください</li>
                   <li>• 自動で読み取りが行われます</li>
                   <li>• 読み取れない場合は手動入力も可能です</li>
@@ -385,7 +421,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           <div className="flex justify-end space-x-3 mt-6">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-gray-300 hover:text-gray-100 transition-colors"
             >
               キャンセル
             </button>
