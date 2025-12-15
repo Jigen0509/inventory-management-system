@@ -1,11 +1,28 @@
 // データベース移行ユーティリティ
 import { supabase } from '../lib/supabase';
+import type { Product, Supplier, Store, User } from '../types/database';
+
+interface LocalInventoryPartial {
+  id?: string;
+  product_id?: string;
+  store_id?: string;
+  current_stock?: number;
+  minimum_stock?: number;
+  maximum_stock?: number;
+  last_updated?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LocalProduct extends Partial<Product> {
+  inventory?: LocalInventoryPartial | null;
+}
 
 export interface MigrationData {
-  savedProducts: any[];
-  storeProducts: any[];
-  currentStore: any;
-  currentUser: any;
+  savedProducts: LocalProduct[];
+  storeProducts: LocalProduct[];
+  currentStore: Partial<Store> | null;
+  currentUser: Partial<User> | null;
 }
 
 // localStorageからデータを取得
@@ -34,28 +51,25 @@ export const getLocalStorageData = (): MigrationData => {
 };
 
 // 商品データをデータベースに移行
-export const migrateProductsToDatabase = async (products: any[]) => {
-  const results = [];
+export const migrateProductsToDatabase = async (products: LocalProduct[]) => {
+  const results: Array<{ success: boolean; product: string; error?: unknown }> = [];
   
   for (const product of products) {
     try {
       // 商品を挿入
-      const { data: productData, error: productError } = await supabase
+      const { error: productError } = await supabase
         .from('products')
         .insert({
-          id: product.id,
-          name: product.name,
+          id: product.id as string,
+          name: (product.name || '') as string,
           barcode: product.barcode,
-          category: product.category,
-          price: product.price,
-          cost: product.cost,
-          supplier_id: product.supplier_id,
+          category: (product.category || '') as string,
+          cost: (product.cost ?? 0) as number,
+          supplier_id: product.supplier_id as string,
           description: product.description,
-          created_at: product.created_at,
-          updated_at: product.updated_at
-        })
-        .select()
-        .single();
+          created_at: (product.created_at || new Date().toISOString()) as string,
+          updated_at: (product.updated_at || new Date().toISOString()) as string
+        });
 
       if (productError) {
         console.error(`商品 ${product.name} の挿入に失敗:`, productError);
@@ -67,15 +81,15 @@ export const migrateProductsToDatabase = async (products: any[]) => {
         const { error: inventoryError } = await supabase
           .from('inventories')
           .insert({
-            id: product.inventory.id,
-            product_id: product.id,
-            store_id: product.inventory.store_id,
-            current_stock: product.inventory.current_stock,
-            minimum_stock: product.inventory.minimum_stock,
-            maximum_stock: product.inventory.maximum_stock,
-            last_updated: product.inventory.last_updated,
-            created_at: product.inventory.created_at,
-            updated_at: product.inventory.updated_at
+            id: product.inventory.id as string,
+            product_id: product.id as string,
+            store_id: product.inventory.store_id as string,
+            current_stock: (product.inventory.current_stock ?? 0) as number,
+            minimum_stock: (product.inventory.minimum_stock ?? 0) as number,
+            maximum_stock: (product.inventory.maximum_stock ?? 0) as number,
+            last_updated: (product.inventory.last_updated || new Date().toISOString()) as string,
+            created_at: (product.inventory.created_at || new Date().toISOString()) as string,
+            updated_at: (product.inventory.updated_at || new Date().toISOString()) as string
           });
 
         if (inventoryError) {
@@ -84,9 +98,9 @@ export const migrateProductsToDatabase = async (products: any[]) => {
       }
 
       results.push({ success: true, product: product.name });
-    } catch (error) {
-      console.error(`商品 ${product.name} の移行に失敗:`, error);
-      results.push({ success: false, product: product.name, error });
+    } catch (err) {
+      console.error(`商品 ${product.name} の移行に失敗:`, err);
+      results.push({ success: false, product: String(product.name || ''), error: err });
     }
   }
   
@@ -94,8 +108,8 @@ export const migrateProductsToDatabase = async (products: any[]) => {
 };
 
 // 供給元データをデータベースに移行
-export const migrateSuppliersToDatabase = async (suppliers: any[]) => {
-  const results = [];
+export const migrateSuppliersToDatabase = async (suppliers: Supplier[]) => {
+  const results: Array<{ success: boolean; supplier: string; error?: unknown }> = [];
   
   for (const supplier of suppliers) {
     try {
@@ -120,9 +134,9 @@ export const migrateSuppliersToDatabase = async (suppliers: any[]) => {
       } else {
         results.push({ success: true, supplier: supplier.name });
       }
-    } catch (error) {
-      console.error(`供給元 ${supplier.name} の移行に失敗:`, error);
-      results.push({ success: false, supplier: supplier.name, error });
+    } catch (err) {
+      console.error(`供給元 ${supplier.name} の移行に失敗:`, err);
+      results.push({ success: false, supplier: supplier.name, error: err });
     }
   }
   
@@ -132,7 +146,11 @@ export const migrateSuppliersToDatabase = async (suppliers: any[]) => {
 // 全データの移行
 export const migrateAllData = async () => {
   const localData = getLocalStorageData();
-  const results = {
+  const results: {
+    products: Array<{ success: boolean; product: string; error?: unknown }>;
+    suppliers: Array<{ success: boolean; supplier: string; error?: unknown }>;
+    errors: unknown[];
+  } = {
     products: [],
     suppliers: [],
     errors: []
@@ -275,9 +293,9 @@ export const migrateAllData = async () => {
     localStorage.setItem('migrationCompleted', 'true');
     localStorage.setItem('migrationDate', new Date().toISOString());
 
-  } catch (error) {
-    console.error('データ移行に失敗しました:', error);
-    results.errors.push(error);
+  } catch (err) {
+    console.error('データ移行に失敗しました:', err);
+    results.errors.push(err);
   }
 
   return results;

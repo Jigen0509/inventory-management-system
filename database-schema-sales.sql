@@ -23,7 +23,7 @@ CREATE INDEX idx_menus_name ON menus(name);
 CREATE TABLE recipes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   menu_id UUID NOT NULL REFERENCES menus(id) ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   quantity_required DECIMAL(10, 3) NOT NULL,
   unit_id VARCHAR(50) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -127,18 +127,22 @@ SELECT
   m.store_id,
   r.product_id,
   p.name AS product_name,
-  p.stock_quantity AS current_stock,
+  COALESCE(i.current_stock, 0) AS current_stock,
   r.quantity_required,
   r.unit_id,
-  FLOOR(p.stock_quantity / r.quantity_required) AS max_servings,
   CASE 
-    WHEN p.stock_quantity < r.quantity_required THEN 'out_of_stock'
-    WHEN p.stock_quantity < (r.quantity_required * 5) THEN 'low_stock'
+    WHEN r.quantity_required = 0 THEN NULL
+    ELSE FLOOR(COALESCE(i.current_stock, 0) / r.quantity_required)
+  END AS max_servings,
+  CASE 
+    WHEN COALESCE(i.current_stock, 0) < r.quantity_required THEN 'out_of_stock'
+    WHEN COALESCE(i.current_stock, 0) < (r.quantity_required * 5) THEN 'low_stock'
     ELSE 'in_stock'
   END AS stock_status
 FROM menus m
 JOIN recipes r ON m.id = r.menu_id
 JOIN products p ON r.product_id = p.id
+LEFT JOIN inventories i ON i.product_id = r.product_id AND i.store_id = m.store_id
 WHERE m.is_active = true;
 
 -- ビュー: 売上集計（日次）

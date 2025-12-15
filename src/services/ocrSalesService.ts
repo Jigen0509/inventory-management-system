@@ -1,7 +1,63 @@
 // OCR売上登録サービス
 
-import { OCRResult, OCRMenuItem, MenuMatchCandidate, Sales, SalesDetail } from '../types/sales';
-import OpenAI from 'openai';
+import { OCRResult, MenuMatchCandidate } from '../types/sales';
+
+// OpenAI型定義（オプショナル依存）
+interface OpenAIClient {
+  chat: {
+    completions: {
+      create: (params: {
+        model: string;
+        messages: Array<{
+          role: string;
+          content: Array<{
+            type: string;
+            text?: string;
+            image_url?: { url: string };
+          }>;
+        }>;
+        max_tokens: number;
+      }) => Promise<{
+        choices: Array<{
+          message?: {
+            content?: string;
+          };
+        }>;
+      }>;
+    };
+  };
+}
+
+interface ParsedReceiptItem {
+  name: string;
+  quantity?: number;
+  unit_price?: number;
+  subtotal?: number;
+}
+
+interface ParsedReceipt {
+  items: ParsedReceiptItem[];
+  total_amount: number;
+  receipt_date: string;
+}
+
+interface RecipeItem {
+  product_id: string;
+  product_name: string;
+  quantity_required: number;
+}
+
+interface InventoryTransactionData {
+  store_id: string;
+  product_id: string;
+  quantity: number;
+  type: string;
+  reference_type: string;
+  reference_id: string;
+  previous_quantity: number;
+  new_quantity: number;
+  notes: string;
+}
 
 /**
  * OCRサービスクラス
@@ -14,10 +70,23 @@ import OpenAI from 'openai';
  * 4. コスト効率（Google Cloud Vision比で同等以下）
  */
 export class OCRService {
-  private openai: OpenAI;
+  private openai: OpenAIClient | null = null;
+  private apiKey: string;
 
   constructor(apiKey: string) {
-    this.openai = new OpenAI({ apiKey });
+    this.apiKey = apiKey;
+  }
+  
+  private async getClient(): Promise<OpenAIClient> {
+    if (this.openai) return this.openai;
+    try {
+      // OpenAI は別途インストールが必要: npm install openai
+      const OpenAI = (await (Function('return import("openai")')() as Promise<{ default: new (config: { apiKey: string }) => OpenAIClient }>)).default;
+      this.openai = new OpenAI({ apiKey: this.apiKey });
+      return this.openai;
+    } catch {
+      throw new Error('OpenAI module is not installed. Please run: npm install openai');
+    }
   }
 
   /**
@@ -25,7 +94,8 @@ export class OCRService {
    */
   async analyzeReceipt(imageBase64: string): Promise<OCRResult> {
     try {
-      const response = await this.openai.chat.completions.create({
+      const client = await this.getClient();
+      const response = await client.chat.completions.create({
         model: "gpt-4-vision-preview",
         messages: [
           {
@@ -80,15 +150,15 @@ export class OCRService {
       }
 
       // JSONパース
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(content) as ParsedReceipt;
       
       return {
         raw_text: content,
-        items: parsed.items.map((item: any) => ({
+        items: parsed.items.map((item: ParsedReceiptItem) => ({
           name: item.name,
           quantity: item.quantity || 1,
           unit_price: item.unit_price || 0,
-          subtotal: item.subtotal || item.unit_price,
+          subtotal: item.subtotal ?? item.unit_price ?? 0,
           confidence: 0.9 // Vision APIは信頼度を返さないため固定値
         })),
         total_amount: parsed.total_amount,
@@ -105,7 +175,8 @@ export class OCRService {
    * 代替案: Google Cloud Vision API
    * より詳細な位置情報や信頼度が必要な場合に使用
    */
-  async analyzeReceiptWithGoogleVision(imageBase64: string): Promise<OCRResult> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async analyzeReceiptWithGoogleVision(_imageBase64: string): Promise<OCRResult> {
     // Google Cloud Vision APIの実装例
     // const vision = require('@google-cloud/vision');
     // const client = new vision.ImageAnnotatorClient();
@@ -222,10 +293,10 @@ export class InventoryDeductionService {
   ): Promise<{
     success: boolean;
     warnings: string[];
-    transactions: any[];
+    transactions: InventoryTransactionData[];
   }> {
     const warnings: string[] = [];
-    const transactions: any[] = [];
+    const transactions: InventoryTransactionData[] = [];
 
     try {
       // レシピ取得
@@ -276,22 +347,25 @@ export class InventoryDeductionService {
   }
 
   // ダミーメソッド（実装は db.ts に委譲）
-  private async getRecipes(menuId: string): Promise<any[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async getRecipes(_menuId: string): Promise<RecipeItem[]> {
     // 実装: データベースからレシピ取得
     return [];
   }
 
-  private async getCurrentStock(productId: string, storeId: string): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async getCurrentStock(_productId: string, _storeId: string): Promise<number> {
     // 実装: 現在の在庫数を取得
     return 0;
   }
 
-  private async createInventoryTransaction(data: any): Promise<any> {
+  private async createInventoryTransaction(data: InventoryTransactionData): Promise<InventoryTransactionData> {
     // 実装: 在庫トランザクション作成
     return data;
   }
 
-  private async updateProductStock(productId: string, storeId: string, newStock: number): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async updateProductStock(_productId: string, _storeId: string, _newStock: number): Promise<void> {
     // 実装: 在庫数更新
   }
 }

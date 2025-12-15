@@ -26,6 +26,11 @@ export interface Product {
   category: string;
   cost: number;
   supplier_id: string;
+  unit?: string;
+  unit_purchase_price?: number;
+  reorder_point?: number;
+  reorder_quantity?: number;
+  is_active?: boolean;
   description?: string;
   image_url?: string;
   created_at: string;
@@ -99,6 +104,36 @@ export interface Session {
   created_at: string;
 }
 
+export interface Menu {
+  id: string;
+  store_id: string;
+  name: string;
+  price: number;
+  category: string;
+  image_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Recipe {
+  id: string;
+  menu_id: string;
+  product_id: string;
+  quantity_required: number;
+  unit_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessageRead {
+  id: string;
+  message_id: string;
+  user_id: string;
+  read_at: string;
+  created_at: string;
+}
+
 // Supabase Database型定義
 export interface Database {
   public: {
@@ -143,10 +178,48 @@ export interface Database {
         Insert: Omit<ChatMessage, 'id' | 'created_at'>;
         Update: Partial<Omit<ChatMessage, 'id' | 'created_at'>>;
       };
+      chat_message_reads: {
+        Row: ChatMessageRead;
+        Insert: Omit<ChatMessageRead, 'id' | 'created_at'>;
+        Update: Partial<Omit<ChatMessageRead, 'id' | 'created_at'>>;
+      };
+      menus: {
+        Row: Menu;
+        Insert: Omit<Menu, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Menu, 'id' | 'created_at' | 'updated_at'>>;
+        Relationships: [
+          {
+            foreignKeyName: 'menus_store_id_fkey';
+            columns: ['store_id'];
+            referencedRelation: 'stores';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      recipes: {
+        Row: Recipe;
+        Insert: Omit<Recipe, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<Recipe, 'id' | 'created_at' | 'updated_at'>>;
+        Relationships: [
+          {
+            foreignKeyName: 'recipes_menu_id_fkey';
+            columns: ['menu_id'];
+            referencedRelation: 'menus';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'recipes_product_id_fkey';
+            columns: ['product_id'];
+            referencedRelation: 'products';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
     Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
 

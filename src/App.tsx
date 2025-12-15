@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import Orders from './pages/Orders';
+import MenuManagement from './pages/MenuManagement';
 import Expiration from './pages/Expiration';
 import Analytics from './pages/Analytics';
 import Chat from './pages/Chat';
@@ -43,6 +44,7 @@ function App() {
                             <Route path="/" element={<Dashboard />} />
                             <Route path="/inventory" element={<Inventory />} />
                             <Route path="/orders" element={<Orders />} />
+                            <Route path="/menus" element={<MenuManagement />} />
                             <Route path="/expiration" element={<Expiration />} />
                             <Route path="/analytics" element={<Analytics />} />
                             <Route path="/chat" element={<Chat />} />
