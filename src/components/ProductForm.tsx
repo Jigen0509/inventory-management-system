@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Package, Camera, Save, X, AlertCircle } from 'lucide-react';
-import BarcodeScanner from './BarcodeScanner';
+import { Package, Save, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { ProductForm as ProductFormType, Supplier, Inventory, Product } from '../types/database';
 import { searchProductByBarcode } from '../data/productMaster';
@@ -44,7 +43,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
   onSupplierAdded,
   onProductSaved
 }) => {
-  const [showScanner, setShowScanner] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
@@ -231,14 +229,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
         }, 5000);
       }
     }
-  };
-
-  const handleBarcodeScan = (barcode: string) => {
-    console.log('スキャンされたバーコード:', barcode);
-    setValue('barcode', barcode);
-    setShowScanner(false);
-    // バーコードから商品情報を検索
-    searchProductInfo(barcode);
   };
 
   const searchProductInfo = async (barcode: string) => {
@@ -470,22 +460,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 バーコード
               </label>
-              <div className="flex space-x-3">
-                <input
-                  {...register('barcode')}
-                  type="text"
-                  placeholder="バーコードを入力"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowScanner(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
-                >
-                  <Camera className="h-4 w-4" />
-                  <span>スキャン</span>
-                </button>
-              </div>
+              <input
+                {...register('barcode')}
+                type="text"
+                placeholder="バーコードを入力"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
               {watchedBarcode && (
                 <p className="mt-1 text-sm text-green-600">
                   バーコード: {watchedBarcode}
@@ -535,7 +515,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
             {/* 賞味期限 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                賞味期限
+                賞味期限（任意）
               </label>
               <input
                 {...register('expiration_date')}
@@ -942,13 +922,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </div>
 
-      {/* バーコードスキャナー */}
-      <BarcodeScanner
-        scannerId={`product-form-scanner-${storeId}`}
-        isOpen={showScanner}
-        onClose={() => setShowScanner(false)}
-        onScan={handleBarcodeScan}
-      />
     </>
   );
 };

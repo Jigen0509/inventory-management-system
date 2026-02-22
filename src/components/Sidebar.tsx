@@ -8,8 +8,6 @@ import {
   Package,
   ShoppingCart,
   Clock,
-  BarChart3,
-  MessageCircle,
   Settings,
   X,
   Store,
@@ -48,7 +46,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { currentStore } = useStore();
   const { isDatabaseMode } = useAuth();
-  const [unreadChatCount, setUnreadChatCount] = useState(3); // デモ用の未読チャット数
   const [inventoryCount, setInventoryCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [expirationCount, setExpirationCount] = useState(0);
@@ -183,8 +180,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { path: '/orders', icon: ShoppingCart, label: '注文管理', hasNotification: true, notificationCount: storeNotifications.orders },
     { path: '/menus', icon: UtensilsCrossed, label: 'メニュー管理' },
     { path: '/expiration', icon: Clock, label: '消費期限', hasNotification: true, notificationCount: storeNotifications.expiration },
-    { path: '/analytics', icon: BarChart3, label: '売れ筋分析' },
-    { path: '/chat', icon: MessageCircle, label: 'チャット', hasNotification: true, notificationCount: unreadChatCount },
+    // { path: '/analytics', icon: BarChart3, label: '売れ筋分析' },
+    // { path: '/chat', icon: MessageCircle, label: 'チャット', hasNotification: true, notificationCount: unreadChatCount },
     { path: '/settings', icon: Settings, label: '設定' },
   ];
 
@@ -226,16 +223,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                onClick={() => {
-                  onClose();
-                  // 各ページに移動したら通知をクリア（デモ用）
-                  if (item.hasNotification) {
-                    if (item.path === '/chat') {
-                      setUnreadChatCount(0);
-                    }
-                    // 他の通知もクリアする場合はここに追加
-                  }
-                }}
+                onClick={onClose}
                 className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-teal-50 text-teal-700 border-r-4 border-teal-700'

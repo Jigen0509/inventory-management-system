@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './contexts/AuthContext';
@@ -14,9 +14,10 @@ import Inventory from './pages/Inventory';
 import Orders from './pages/Orders';
 import MenuManagement from './pages/MenuManagement';
 import Expiration from './pages/Expiration';
-import Analytics from './pages/Analytics';
-import Chat from './pages/Chat';
 import Settings from './pages/Settings';
+import SupplierSettings from './components/SupplierSettings';
+import StockAlertSettings from './components/StockAlertSettings';
+import UserManagement from './components/UserManagement';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -46,9 +47,12 @@ function App() {
                             <Route path="/orders" element={<Orders />} />
                             <Route path="/menus" element={<MenuManagement />} />
                             <Route path="/expiration" element={<Expiration />} />
-                            <Route path="/analytics" element={<Analytics />} />
-                            <Route path="/chat" element={<Chat />} />
+                            {/* <Route path="/analytics" element={<Analytics />} /> */}
+                            {/* <Route path="/chat" element={<Chat />} /> */}
                             <Route path="/settings" element={<Settings />} />
+                            <Route path="/settings/suppliers" element={<SupplierSettings />} />
+                            <Route path="/settings/stock-alerts" element={<StockAlertSettings />} />
+                            <Route path="/settings/users" element={<UserManagement />} />
                           </Routes>
                         </ErrorBoundary>
                       </main>

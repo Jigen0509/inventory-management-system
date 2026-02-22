@@ -93,12 +93,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const loadUserProfile = async (userId: string) => {
-    // デモ用のユーザーデータ
+    // MVP: デモ用ユーザーは「オーナー（admin）」と「スタッフ（staff）」の2階層のみ
     const demoUsers = {
       'admin@demo.com': {
         id: '750e8400-e29b-41d4-a716-446655440001',
         email: 'admin@demo.com',
-        name: '管理者 太郎',
+        name: 'オーナー 太郎',
         role: 'admin' as const,
         store_id: '550e8400-e29b-41d4-a716-446655440001',
         store: {
@@ -111,8 +111,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       'manager@demo.com': {
         id: '750e8400-e29b-41d4-a716-446655440002',
         email: 'manager@demo.com',
-        name: '店長 花子',
-        role: 'manager' as const,
+        name: 'オーナー 花子',
+        role: 'admin' as const,
         store_id: '550e8400-e29b-41d4-a716-446655440001',
         store: {
           id: '550e8400-e29b-41d4-a716-446655440001',
@@ -137,27 +137,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       'manager2@demo.com': {
         id: '750e8400-e29b-41d4-a716-446655440004',
         email: 'manager2@demo.com',
-        name: '支店長 二郎',
-        role: 'manager' as const,
-        store_id: '550e8400-e29b-41d4-a716-446655440002',
+        name: 'オーナー 二郎',
+        role: 'admin' as const,
+        store_id: '550e8400-e29b-41d4-a716-446655440001',
         store: {
-          id: '550e8400-e29b-41d4-a716-446655440002',
-          name: '支店',
-          address: '大阪府大阪市北区梅田1-1-1',
-          phone: '06-1234-5678'
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          name: '本店',
+          address: '東京都渋谷区道玄坂1-2-3',
+          phone: '03-1234-5678'
         }
       },
       'staff2@demo.com': {
         id: '750e8400-e29b-41d4-a716-446655440005',
         email: 'staff2@demo.com',
-        name: '支店スタッフ 三郎',
+        name: 'スタッフ 三郎',
         role: 'staff' as const,
-        store_id: '550e8400-e29b-41d4-a716-446655440002',
+        store_id: '550e8400-e29b-41d4-a716-446655440001',
         store: {
-          id: '550e8400-e29b-41d4-a716-446655440002',
-          name: '支店',
-          address: '大阪府大阪市北区梅田1-1-1',
-          phone: '06-1234-5678'
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          name: '本店',
+          address: '東京都渋谷区道玄坂1-2-3',
+          phone: '03-1234-5678'
         }
       }
     };

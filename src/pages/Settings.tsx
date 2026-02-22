@@ -7,8 +7,11 @@ import {
   Database,
   Download,
   Save,
-  AlertTriangle
+  AlertTriangle,
+  Package,
+  UserPlus
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('notifications');
@@ -40,8 +43,8 @@ const Settings: React.FC = () => {
   const tabs = [
     { id: 'notifications', label: '通知設定', icon: Bell },
     { id: 'store', label: '店舗情報', icon: Users },
+    { id: 'advanced', label: '高度な設定', icon: Shield },
     { id: 'system', label: 'システム', icon: SettingsIcon },
-    { id: 'security', label: 'セキュリティ', icon: Shield },
     { id: 'data', label: 'データ管理', icon: Database }
   ];
 
@@ -362,6 +365,59 @@ const Settings: React.FC = () => {
           {activeTab === 'store' && renderStoreSettings()}
           {activeTab === 'system' && renderSystemSettings()}
           
+          {activeTab === 'advanced' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">高度な設定</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Link
+                  to="/settings/suppliers"
+                  className="p-6 border-2 border-gray-200 rounded-lg hover:border-indigo-500 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
+                      <Package className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900">発注先詳細設定</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    最低発注金額やリードタイムを設定
+                  </p>
+                </Link>
+
+                <Link
+                  to="/settings/stock-alerts"
+                  className="p-6 border-2 border-gray-200 rounded-lg hover:border-yellow-500 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
+                      <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900">在庫アラート基準</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    商品ごとの発注基準点を設定
+                  </p>
+                </Link>
+
+                <Link
+                  to="/settings/users"
+                  className="p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all group"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                      <UserPlus className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900">ユーザー管理</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    スタッフの追加・権限変更
+                  </p>
+                </Link>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'security' && (
             <div className="text-center py-12">
               <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />

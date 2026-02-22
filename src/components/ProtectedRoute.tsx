@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'staff';
+  requiredRole?: 'owner' | 'staff';
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
@@ -26,8 +26,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
 
   // ロールベースのアクセス制御
   if (requiredRole && user) {
-    const roleHierarchy = { staff: 1, manager: 2, admin: 3 };
-    const userRoleLevel = roleHierarchy[user.role];
+    const normalizedUserRole = user.role === 'staff' ? 'staff' : 'owner';
+    const roleHierarchy = { staff: 1, owner: 2 };
+    const userRoleLevel = roleHierarchy[normalizedUserRole];
     const requiredRoleLevel = roleHierarchy[requiredRole];
 
     if (userRoleLevel < requiredRoleLevel) {

@@ -5,6 +5,9 @@ export interface User {
   name: string;
   role: 'admin' | 'manager' | 'staff';
   store_id: string;
+  phone?: string;
+  is_active?: boolean;
+  last_login?: string;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +47,8 @@ export interface Inventory {
   current_stock: number;
   minimum_stock: number;
   maximum_stock: number;
+  reorder_point?: number;
+  reorder_quantity?: number;
   expiration_date?: string;
   last_updated: string;
   created_at: string;
@@ -59,6 +64,9 @@ export interface Supplier {
   address: string;
   order_url?: string;
   category?: string;
+  minimum_order_amount?: number;
+  lead_time_days?: number;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -274,6 +282,21 @@ export interface ApiResponse<T> {
   success: boolean;
   message?: string;
 }
+
+// 店舗設定
+export interface StoreSettings {
+  id: string;
+  store_id: string;
+  business_hours_start: string;
+  business_hours_end: string;
+  tax_rate: number;
+  default_stock_threshold: number;
+  auto_order_enabled: boolean;
+  notification_email?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 
 export interface PaginatedResponse<T> {
   data: T[];

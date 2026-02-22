@@ -497,7 +497,7 @@ const Orders: React.FC = () => {
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 transition-colors"
           >
             <Zap className="h-5 w-5" />
-            <span>自動発注</span>
+            <span>発注候補を生成</span>
           </button>
           <button 
             onClick={() => setShowManualOrder(true)}
@@ -573,7 +573,7 @@ const Orders: React.FC = () => {
             <div className="p-12 text-center">
               <ShoppingCart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">発注書がありません</h3>
-              <p className="text-gray-600">自動発注機能を使用して発注書を作成しましょう。</p>
+              <p className="text-gray-600">発注候補の生成または手動発注から作成できます。</p>
             </div>
           ) : (
             filteredOrders.map((order) => (
@@ -667,7 +667,7 @@ const Orders: React.FC = () => {
         </div>
       </div>
 
-      {/* 自動発注生成 */}
+      {/* 発注候補の自動生成 */}
       <AutoOrderGenerator
         isOpen={showAutoOrder}
         onClose={() => setShowAutoOrder(false)}

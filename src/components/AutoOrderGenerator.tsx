@@ -706,7 +706,7 @@ const AutoOrderGenerator: React.FC<AutoOrderGeneratorProps> = ({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
             <ShoppingCart className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">自動発注書生成</h2>
+            <h2 className="text-xl font-semibold text-gray-900">発注候補の自動生成</h2>
           </div>
           <button
             onClick={onClose}
@@ -770,6 +770,7 @@ const AutoOrderGenerator: React.FC<AutoOrderGeneratorProps> = ({
 
             {/* 供給元別在庫不足商品一覧 */}
             <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-3">在庫不足から候補を作成します。最終的な発注は下の「発注書作成」で手動確定されます。</p>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 供給元別在庫不足商品 ({lowStockItems.length}件)
               </h3>

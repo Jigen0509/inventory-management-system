@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Package, 
   Plus, 
@@ -6,18 +6,15 @@ import {
   Filter, 
   AlertTriangle,
   CheckCircle,
-  Camera,
   X,
   Trash2
 } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useAuth } from '../contexts/AuthContext';
 import ProductForm from '../components/ProductForm';
-import BarcodeScanner from '../components/BarcodeScanner';
 import { db } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import type { ProductWithInventory, Supplier } from '../types/database';
-import { searchProductByBarcode } from '../data/productMaster';
 
 // デモ用のローカル型は本番運用では不要のため削除
 
@@ -29,7 +26,6 @@ const Inventory: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState<string | undefined>(undefined);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
   const [showProductDetail, setShowProductDetail] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductWithInventory | null>(null);
@@ -37,7 +33,6 @@ const Inventory: React.FC = () => {
   const [filteredProducts, setFilteredProducts] = useState<ProductWithInventory[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isScannerMounted, setIsScannerMounted] = useState(false);
 
   const categories = ['all', '在庫不足', '飲み物', 'パン類', '乳製品', '主食', '冷凍食品', 'お菓子', '調味料', 'インスタント', '野菜', '肉類', '魚類', 'その他'];
 
@@ -46,17 +41,7 @@ const Inventory: React.FC = () => {
       loadProducts();
       loadSuppliers();
     }
-    
-    // コンポーネントのアンマウント時にスキャナーをクリーンアップ
-    return () => {
-      console.log('Inventory: Component unmounting');
-      if (showScanner) {
-        console.log('Inventory: Cleaning up scanner on unmount');
-        setIsScannerMounted(false);
-        setShowScanner(false);
-      }
-    };
-  }, [currentStore?.id, showScanner]);
+  }, [currentStore?.id]);
 
   // モバイル判定
   useEffect(() => {
@@ -222,39 +207,6 @@ const Inventory: React.FC = () => {
     setFilteredProducts(filtered);
   }, [products, searchTerm, selectedCategory]);
 
-  // バーコードスキャン処理
-  const handleBarcodeScan = useCallback((barcode: string) => {
-    console.log('Inventory: Barcode scanned:', barcode);
-    
-    const existingProduct = products.find(p => p.barcode === barcode);
-    
-    if (existingProduct) {
-      setSelectedProduct(existingProduct);
-      setShowProductDetail(true);
-      toast.success('商品が見つかりました');
-    } else {
-      // 商品マスタデータベースから検索
-      const masterProduct = searchProductByBarcode(barcode);
-      
-      if (masterProduct) {
-        toast.success(`商品情報を自動入力: ${masterProduct.name}`);
-      } else {
-        toast('新規商品として追加します。商品情報を入力してください。', { icon: 'ℹ️' });
-      }
-      
-      // 新規商品として追加
-      setScannedBarcode(barcode);
-      setShowAddModal(true);
-    }
-    
-    // スキャナーを閉じる前に少し待機
-    setTimeout(() => {
-      console.log('Inventory: Unmounting scanner after scan');
-      setIsScannerMounted(false);
-      setShowScanner(false);
-    }, 200);
-  }, [products]);
-
   // 発注処理
   const handleOrder = (product: ProductWithInventory) => {
     if (product.supplier?.order_url) {
@@ -312,19 +264,9 @@ const Inventory: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">在庫管理</h1>
-          <p className="text-gray-600">商品の在庫状況を管理します</p>
+          <p className="text-gray-600">商品の在庫状況を管理します（手動操作メイン）</p>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={() => {
-              setIsScannerMounted(true);
-              setShowScanner(true);
-            }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-          >
-            <Camera className="h-4 w-4 mr-2" />
-            スキャン
-          </button>
         <button 
           onClick={() => setShowAddModal(true)}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center"
@@ -764,23 +706,6 @@ const Inventory: React.FC = () => {
         </div>
       )}
 
-      {/* バーコードスキャナーモーダル */}
-      {isScannerMounted ? (
-        <BarcodeScanner
-          key={`scanner-${currentStore?.id || 'default'}`}
-          scannerId={`inventory-scanner-${currentStore?.id || 'default'}`}
-          isOpen={showScanner}
-          onClose={() => {
-            console.log('Inventory: Closing scanner');
-            setShowScanner(false);
-            // 少し遅延してアンマウント
-            setTimeout(() => {
-              setIsScannerMounted(false);
-            }, 300);
-          }}
-          onScan={handleBarcodeScan}
-        />
-      ) : null}
     </div>
   );
 };

@@ -33,6 +33,8 @@ const demoStores: Record<string, Store> = {
   }
 };
 
+const DEFAULT_STORE_ID = '550e8400-e29b-41d4-a716-446655440001';
+
 const isValidUUID = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 interface StoreContextType {
@@ -61,24 +63,25 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   const [currentStore, setCurrentStore] = useState<Store | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadCurrentStore = useCallback(async (storeId: string) => {
+  const loadCurrentStore = useCallback(async () => {
     setIsLoading(true);
     try {
       if (isDatabaseMode) {
-        if (!isValidUUID(storeId)) {
-          console.error('Invalid store_id (not UUID):', storeId);
+        if (!isValidUUID(DEFAULT_STORE_ID)) {
+          console.error('Invalid store_id (not UUID):', DEFAULT_STORE_ID);
           setCurrentStore(null);
           return;
         }
-        // データベースから店舗情報を取得
-        const { data: storeData, error } = await db.getStore(storeId);
+
+        // MVP: 単一店舗運用のため常にデフォルト店舗を参照
+        const { data: storeData, error } = await db.getStore(DEFAULT_STORE_ID);
         if (storeData && !error) {
           setCurrentStore(storeData);
         } else {
           console.error('Error loading store from database:', error);
         }
       } else {
-        const storeData = demoStores[storeId];
+        const storeData = demoStores[DEFAULT_STORE_ID];
         if (storeData) {
           setCurrentStore(storeData);
         }
@@ -91,43 +94,15 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
   }, [isDatabaseMode]);
 
   useEffect(() => {
-    if (user?.store_id) {
-      loadCurrentStore(user.store_id);
-    } else if (!isDatabaseMode) {
-      const saved = localStorage.getItem('currentStoreId');
-      const fallbackId = saved && demoStores[saved] ? saved : '550e8400-e29b-41d4-a716-446655440001';
-      setCurrentStore(demoStores[fallbackId]);
-    }
-  }, [user?.store_id, isDatabaseMode, loadCurrentStore]);
+    loadCurrentStore();
+  }, [user?.id, isDatabaseMode, loadCurrentStore]);
 
   const switchStore = async (storeId: string) => {
-    setIsLoading(true);
-    try {
-      if (isDatabaseMode) {
-        if (!isValidUUID(storeId)) {
-          console.error('Invalid store_id (not UUID):', storeId);
-          setCurrentStore(null);
-          return;
-        }
-        // データベースから店舗情報を取得
-        const { data: storeData, error } = await db.getStore(storeId);
-        if (storeData && !error) {
-          setCurrentStore(storeData);
-        } else {
-          console.error('Error loading store from database:', error);
-        }
-      } else {
-        const storeData = demoStores[storeId];
-        if (storeData) {
-          setCurrentStore(storeData);
-          localStorage.setItem('currentStoreId', storeId);
-        }
-      }
-    } catch (error) {
-      console.error('Error switching store:', error);
-    } finally {
-      setIsLoading(false);
+    // MVP: 単一店舗運用のため切り替え処理は無効化
+    if (storeId !== DEFAULT_STORE_ID) {
+      console.info('Store switching is disabled in MVP mode.');
     }
+    await loadCurrentStore();
   };
 
   const value: StoreContextType = {

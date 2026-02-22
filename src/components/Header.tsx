@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Menu, User, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useStore } from '../contexts/StoreContext';
-import StoreSelector from './StoreSelector';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -12,10 +10,9 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { user, signOut } = useAuth();
-  const { currentStore, switchStore } = useStore();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [unreadChatCount] = useState(3); // デモ用の未読チャット数
+  const defaultStoreId = '550e8400-e29b-41d4-a716-446655440001';
   
   // 店舗ごとの通知数
   const getStoreNotifications = (storeId: string) => {
@@ -39,8 +36,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     return notifications[storeId as keyof typeof notifications] || notifications['550e8400-e29b-41d4-a716-446655440001'];
   };
 
-  const storeNotifications = getStoreNotifications(currentStore?.id || '550e8400-e29b-41d4-a716-446655440001');
-  const totalNotifications = storeNotifications.inventory + storeNotifications.orders + storeNotifications.expiration + unreadChatCount;
+  const storeNotifications = getStoreNotifications(defaultStoreId);
+  const totalNotifications = storeNotifications.inventory + storeNotifications.orders + storeNotifications.expiration;
 
   const handleSignOut = async () => {
     try {
@@ -56,8 +53,9 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
   const getRoleText = (role: string) => {
     switch (role) {
-      case 'admin': return '管理者';
-      case 'manager': return '店長';
+      case 'admin':
+      case 'manager':
+        return 'オーナー';
       case 'staff': return 'スタッフ';
       default: return 'ユーザー';
     }
@@ -91,14 +89,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* 店舗切り替え */}
-          <StoreSelector
-            currentStoreId={currentStore?.id || ''}
-            onStoreChange={switchStore}
-            showAddButton={user?.role === 'admin'}
-          />
-          
-          
           {/* ユーザーメニュー */}
           <div className="relative">
             <button
