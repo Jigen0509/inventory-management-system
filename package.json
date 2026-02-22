@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "heroku-postbuild": "npm run build",
-    "start": "node server.js"
+    "start": "serve -s dist -l $PORT"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.58.0",
